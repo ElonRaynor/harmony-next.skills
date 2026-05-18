@@ -3669,6 +3669,7 @@ appBasics/应用基础与包结构.md
 appBasics/应用模型与并发.md
 continuation/自由流转与跨端协同指南.md
 ideGuides/AI辅助编程指南.md
+ideGuides/DevEco Studio IDE私有接口与AI自动化.md
 ideGuides/DevEco模拟器私有接口与AI自动化.md
 ideGuides/命令行工具指南.md
 ideGuides/应用签名指南.md

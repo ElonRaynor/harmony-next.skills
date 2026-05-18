@@ -1,6 +1,6 @@
 ---
 name: harmony-next
-description: HarmonyOS NEXT（以 API 12-23 为主）离线参考库导航：按 Kit/任务/索引渐进式定位文档（ArkTS/ArkUI/NDK）；触发 DevEco Studio / HarmonyOS Emulator / HVD / hdc / uitest / aa / bm / hilog / hidumper / 免 IDE 启动 / 私有未公开接口自动化任务。
+description: HarmonyOS NEXT（以 API 12-23 为主）离线参考库导航：按 Kit/任务/索引渐进式定位文档（ArkTS/ArkUI/NDK）；触发 DevEco Studio / HarmonyOS Emulator / HVD / hdc / uitest / aa / bm / hilog / hidumper / 免 IDE 启动 / DevEco Studio IDE / CodeGenie / MCP / LanceDB / devecostudio:// / ArkUI Inspector / Previewer / Profiler / Doctor / UxTestService / 私有未公开接口自动化任务。
 ---
 
 # HarmonyOS NEXT（离线文档导航）
@@ -41,6 +41,20 @@ description: HarmonyOS NEXT（以 API 12-23 为主）离线参考库导航：按
 - 多 target 时必须显式选择 `127.0.0.1:<port>`；只选择 `Connected`，忽略 `Offline`。
 - 不能分类的命令按 `require_confirm` 处理；刷写、格式化、清数据、root/daemon 模式等系统级命令默认禁止。
 
+## 私有未公开接口：DevEco Studio IDE 能力
+
+这一章只适用于“深挖 DevEco Studio IDE 本体能力、CodeGenie、本地 AI/RAG/MCP、devecostudio:// 私有协议、Previewer、ArkUI Inspector、Profiler、Doctor、Diagnostic、FaultLog、UxTestService、插件 action/toolWindow/service”等任务。
+
+先读 `references/ideGuides/DevEco Studio IDE私有接口与AI自动化.md`。该页来自本机静态验证结论，不属于稳定公开 API；任何插件 ID、jar、类名、端口范围、URL scheme、handler、配置路径和本地服务行为都可能随 DevEco Studio 版本变化。
+
+默认边界：
+
+- 只读允许：枚举 DevEco 包内文件、解析 `Info.plist` / `product-info.json` / 插件 XML、扫描 jar 类名和字符串、分析离线 `.htrace` / faultlog / stacktrace / `.arkli` / `.preview` 产物。
+- 需要确认：启动 IDE/GUI/JCEF/Preview Server/Inspector/Profiler/Debug，连接设备，抓截图/日志/layout，读取用户侧缓存或聊天历史，调用 CodeGenie localhost HTTP/WebSocket，创建 MCP 配置，触发外部 LLM provider。
+- 默认禁止：自动登录、上传、部署、清缓存、删除状态、公开 token/securityId/API key/项目片段/日志正文、未隔离验证未知 `devecostudio://` URL。
+
+CodeGenie、MCP、LanceDB、HTTP forwarding、Application Agent、Operation Analyzer、Cloud Toolkit 这类能力必须先做隐私和账号边界判断，再决定是否进入确认档验证。
+
 ## 生成约束（避免踩坑）
 
 - **不要全量读取**：先在 `INDEX.md` 命中路径，再打开对应 `.md`。
@@ -48,4 +62,4 @@ description: HarmonyOS NEXT（以 API 12-23 为主）离线参考库导航：按
 - **ArkUI 优先声明式**：示例优先使用 `@Entry` / `@Component` / `build()`（除非文档明确是 NDK 或系统服务）。
 - **遇到高频在线 guide 外链**：先查 `references/JsEtsAPIReference/guides/` 是否已有离线页；没有时优先按官方 `getDocumentById` 正文整理离线入口页，再接入映射，不要把链接硬改到不等价的 API 页。
 
-<!-- version: 1.3.4 -->
+<!-- version: 1.3.5 -->

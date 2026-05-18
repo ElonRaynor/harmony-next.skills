@@ -1,4 +1,5 @@
 harmony-next.skill
 inputs/
+.hvigor/
 **/__pycache__/
 harmony-next/references/JsEtsAPIReference/zh-cn_image_*.webp

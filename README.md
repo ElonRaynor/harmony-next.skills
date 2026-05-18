@@ -2,9 +2,9 @@
 
 给 Gemini CLI、Claude Code、Codex 等 AI 编程助手使用的 HarmonyOS NEXT 离线参考技能库。
 
-[![release](https://img.shields.io/badge/release-v1.3.4-1f6feb?style=flat-square)](https://github.com/linhay/harmony-next.skills/releases/tag/v1.3.4)
+[![release](https://img.shields.io/badge/release-v1.3.5-1f6feb?style=flat-square)](https://github.com/linhay/harmony-next.skills/releases/tag/v1.3.5)
 [![readme](https://img.shields.io/badge/readme-English-0f766e?style=flat-square)](./README_en.md)
-![docs](https://img.shields.io/badge/docs-3,692%20markdown%20files-7c3aed?style=flat-square)
+![docs](https://img.shields.io/badge/docs-3,693%20markdown%20files-7c3aed?style=flat-square)
 ![js-ets](https://img.shields.io/badge/JsEtsAPIReference-3,666%20files-b45309?style=flat-square)
 
 > 面向 API 12-23 的本地知识源，覆盖 ArkTS、ArkUI、NDK、工具链、调试、发布与多端适配。
@@ -20,6 +20,7 @@
 - API 23 新增内容有没有纳入当前知识库
 - 某个旧链接是否已经迁移、是否还能跳转
 - DevEco Studio 模拟器、`hdc`、`uitest` 等本地自动化链路该如何安全验证
+- DevEco Studio IDE、CodeGenie、MCP、Inspector、Profiler 等私有能力该如何先隔离验证再使用
 
 这个仓库的目标，是把这些问题变成可定位、可跳转、可验证的本地文件查询。
 
@@ -30,7 +31,7 @@
 | 离线可检索 | 不依赖模型记忆猜 API，先命中文档路径再读取正文 |
 | 面向 Agent 工作流 | 按 `SKILL.md -> KITS/TASK_MAP -> INDEX` 组织，适合渐进式检索 |
 | 不只 API 手册 | 还包含 IDE、签名、调试、发布、性能、多端与 NDK 实战指引 |
-| 私有接口隔离 | DevEco 模拟器私有未公开自动化能力单独成章，默认先验证版本和风险门禁 |
+| 私有接口隔离 | DevEco 模拟器与 IDE 本体私有未公开能力分别单独成章，默认先验证版本和风险门禁 |
 
 ## 内容概览
 
@@ -42,7 +43,8 @@
 | 全库索引 | 收录整个参考库的 Markdown 路径，用于先命中路径再读正文 | [`references/INDEX.md`](./harmony-next/references/INDEX.md) |
 | API 分桶索引 | 聚焦 `JsEtsAPIReference/`，覆盖 modules、topics、types、errors、guides | [`JsEtsAPIReference/INDEX.md`](./harmony-next/references/JsEtsAPIReference/INDEX.md) |
 | DevEco 模拟器私有接口 | 免 IDE 启动 Emulator、`hdc + uitest`、HVD、日志与诊断的本地验证边界 | [`DevEco模拟器私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco模拟器私有接口与AI自动化.md) |
-| 参考正文 | 共 `3,692` 份 Markdown，其中 `3,666` 份在 `JsEtsAPIReference/` | [`harmony-next/references/`](./harmony-next/references/) |
+| DevEco IDE 私有接口 | CodeGenie、本地 RAG/MCP、`devecostudio://`、Previewer、ArkUI Inspector、Profiler、Doctor、UxTestService 的静态验证边界 | [`DevEco Studio IDE私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco%20Studio%20IDE私有接口与AI自动化.md) |
+| 参考正文 | 共 `3,693` 份 Markdown，其中 `3,666` 份在 `JsEtsAPIReference/` | [`harmony-next/references/`](./harmony-next/references/) |
 
 ## 推荐检索路径
 
@@ -92,6 +94,16 @@ SKILL.md
 - 先读 [`harmony-next/SKILL.md`](./harmony-next/SKILL.md) 的私有接口章节，再读 [`DevEco模拟器私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco模拟器私有接口与AI自动化.md)。
 - 每次执行前重新验证当前 DevEco / Emulator / SDK 版本和命令能力。
 - 真实截图、layout、日志包、安装卸载、端口转发、HVD 创建/删除等动作需要用户确认和脱敏策略。
+
+### DevEco Studio IDE 私有接口
+
+这部分属于私有未公开接口，触发词包括：`DevEco Studio IDE`、`CodeGenie`、`MCP`、`LanceDB`、`devecostudio://`、`inspect.sh`、`format.sh`、`ltedit.sh`、`ArkUI Inspector`、`Previewer`、`Profiler`、`Doctor`、`Diagnostic`、`FaultLog`、`UxTestService`、`Application Agent`、`Operation Analyzer`、`Cloud Toolkit`。
+
+使用规则：
+
+- 先读 [`harmony-next/SKILL.md`](./harmony-next/SKILL.md) 的 IDE 私有接口章节，再读 [`DevEco Studio IDE私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco%20Studio%20IDE私有接口与AI自动化.md)。
+- 默认只做静态只读分析：插件 XML、jar 类名、字符串、配置路径、离线 `.htrace` / faultlog / stacktrace / `.arkli` / `.preview` 产物。
+- 启动 IDE/GUI/JCEF、本地服务、设备连接、CodeGenie localhost 接口、MCP 配置、外部模型请求、读取用户缓存或聊天历史前必须确认。
 
 ### Agent 工程化集成
 
@@ -148,6 +160,7 @@ git clone https://github.com/linhay/harmony-next.skills.git
 
 | 版本 | 重点变化 |
 | --- | --- |
+| `v1.3.5` | 新增 DevEco Studio IDE 私有未公开能力参考：CodeGenie 本地 RAG/MCP/LanceDB、`devecostudio://`、Previewer、ArkUI Inspector、Profiler、Doctor、UxTestService、插件入口索引与隐私风险门禁；更新 README 与触发词 |
 | `v1.3.4` | 新增 DevEco Studio 模拟器私有未公开自动化参考：免 IDE 启动、`hdc + uitest`、HVD、多实例、风险门禁、超时与脱敏边界；更新 `SKILL.md` 触发词与任务索引 |
 | `v1.2.0` | API 23 相关内容纳入当前更新；重建 `references/INDEX.md` 与 `JsEtsAPIReference/INDEX.md`；移除旧 `capi/headers/*.md` 页面并改为直链真实目标；新增 `reference_compat.py` 与链接回归审计能力；同步中英文 README 与维护说明 |
 
