@@ -32,8 +32,10 @@
 - Keywords: 调试, Debug, 断点, LLDB
 - Keywords: 日志, Log, HiLog, 故障分析, FaultLog
 - Keywords: 命令行, CLI, hdc, ohpm, hvigor, 自动化
+- Keywords: DevEco Studio, HarmonyOS Emulator, uitest, aa, bm, hidumper, 私有接口, 免 IDE 启动, HVD
 - Keywords: 独立工具包, Standalone CLI, OHOS_BASE_SDK_HOME, 环境变量, CI/CD配置
 - 快速命中: `rg -n "(签名|Signing|hdc|hvigor|ohpm|LLDB|HiLog)" INDEX.md | rg \"^ideGuides/\" | head`
+- 私有未公开接口入口：`ideGuides/DevEco模拟器私有接口与AI自动化.md`
 
 ## Performance & Optimization
 - 推荐目录: performanceAndStandards/

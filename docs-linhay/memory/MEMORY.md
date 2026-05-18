@@ -11,3 +11,8 @@
 - 2026-05-04：第四批官方 guide 离线入口页已覆盖 `agent-powered-reminder`、`app-sandbox-directory`、`arkts-interaction-basic-principles`、`data-persistence-by-preferences`、`crypto-rsa-sign-sig-verify-pkcs1`、`devicesecurity-deviceverify-activateservice`、`arkts-ui-widget-configuration`、`worker-introduction`、`arkts-internationalization`、`request-user-authorization`、`image-allocator-type`。
 - 2026-05-04：第五批官方 guide 离线入口页已覆盖 `ide-setup-hilog`、`bm-tool`、`unittest-guidelines`、`map-language`、`photoaccesshelper-savebutton`、`crypto-rsa-sign-sig-verify-pkcs1-by-segment`、`crypto-compute-hmac`、`l10n-singular-plural`、`web-default-useragent`、`devicesecurity-getsuperprivacymode`、`account-phone-unionid-login`、`arkts-user-defined-node`、`push-msg-receipt`、`push-get-token`、`napi-xcomponent-guidelines`、`iap-set-necessary-parameters`、`security-component-overview`、`native-camera-preview-imagereceiver`、`obtain-supported-codecs`、`uiability-intra-device-interaction`、`mdm-kit-term`、`web-file-upload`。
 - 2026-05-04：issue 9 这一轮高频在线 guide 清理完成后，仓库内 HarmonyOS 在线 guide slug 的最高残留频次已降到 `4`；后续继续扩面时优先处理 `4` 次残留项，并保持“官方 `getDocumentById` 正文 -> `guides/*.md` -> `TARGETED_GUIDE_MAPPING` -> `generate/check`”流程。
+- 2026-05-18：DevEco Emulator 可脱离 IDE 启动，但 runner 必须满足 HVD 父目录、镜像根目录、trace pipe 占位和 HDC target 选择等启动依赖；启动成功以进程、boot 日志、`hdc list targets` 和基础 `uitest` 命令为验收信号。
+- 2026-05-18：HarmonyOS 模拟器 AI 自动化默认主链路为设备发现、boot check、应用生命周期、窗口/无障碍定位、`uitest` UI 操作、日志/诊断；真实截图、真实 layout、大日志、安装卸载、压测、录制、测试入口和底层输入都需要用户确认。
+- 2026-05-18：本地 HVD 创建没有稳定公开 create CLI；可行方向是基于同版本可运行实例同步必要元数据与运行期数据，但创建、删除、清理、改配置都属于确认档操作。
+- 2026-05-18：多实例通过启动参数显式分配 HDC 端口；脚本只操作 `Connected` target，多个 `Connected` 且未显式指定 target 时必须停止并让上层选择。
+- 2026-05-18：非公开或半公开能力只记录命令级结论、用途、验证结果和风险等级，不记录来源路径、获取方法、内部符号、文件定位信息或业务标识。

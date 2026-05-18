@@ -2,10 +2,10 @@
 
 An offline HarmonyOS NEXT reference skill for coding agents such as Gemini CLI, Claude Code, and Codex.
 
-[![release](https://img.shields.io/badge/release-v1.3.3-1f6feb?style=flat-square)](https://github.com/linhay/harmony-next.skills/releases/tag/v1.3.3)
+[![release](https://img.shields.io/badge/release-v1.3.4-1f6feb?style=flat-square)](https://github.com/linhay/harmony-next.skills/releases/tag/v1.3.4)
 [![readme](https://img.shields.io/badge/readme-%E4%B8%AD%E6%96%87-0f766e?style=flat-square)](./README.md)
-![docs](https://img.shields.io/badge/docs-3,622%20markdown%20files-7c3aed?style=flat-square)
-![js-ets](https://img.shields.io/badge/JsEtsAPIReference-3,598%20files-b45309?style=flat-square)
+![docs](https://img.shields.io/badge/docs-3,692%20markdown%20files-7c3aed?style=flat-square)
+![js-ets](https://img.shields.io/badge/JsEtsAPIReference-3,666%20files-b45309?style=flat-square)
 
 > A local knowledge source for API 12-23, covering ArkTS, ArkUI, NDK, toolchains, debugging, release workflows, and multi-device adaptation.
 
@@ -19,6 +19,7 @@ It is meant to answer questions like:
 - Whether an ArkUI component, interface, or NDK header actually exists
 - Whether API 23 additions are already included in the current knowledge base
 - Whether a legacy internal link has been migrated and still resolves correctly
+- How to safely verify local DevEco Studio emulator automation with `hdc`, `uitest`, and related tooling
 
 The goal is to turn those questions into local file lookups that are traceable, linkable, and verifiable.
 
@@ -29,6 +30,7 @@ The goal is to turn those questions into local file lookups that are traceable, 
 | Offline retrieval | Resolve document paths first, then read the source instead of guessing from model memory |
 | Agent-oriented workflow | Organized as `SKILL.md -> KITS/TASK_MAP -> INDEX`, which fits progressive retrieval |
 | More than API docs | Includes IDE setup, signing, debugging, release, performance, multi-device, and NDK guidance |
+| Private-interface isolation | DevEco emulator private automation notes live in a separate chapter with version checks and risk gates |
 
 ## Repository Overview
 
@@ -39,7 +41,8 @@ The goal is to turn those questions into local file lookups that are traceable, 
 | Task navigation | Map UI, lifecycle, network, media, NDK, release, and other tasks to keywords | [`references/TASK_MAP.md`](./harmony-next/references/TASK_MAP.md) |
 | Global index | Full Markdown path index for the reference corpus | [`references/INDEX.md`](./harmony-next/references/INDEX.md) |
 | Bucketed API index | Focused index for `JsEtsAPIReference/`, covering modules, topics, types, errors, and guides | [`JsEtsAPIReference/INDEX.md`](./harmony-next/references/JsEtsAPIReference/INDEX.md) |
-| Reference corpus | `3,622` Markdown files total, with `3,598` under `JsEtsAPIReference/` | [`harmony-next/references/`](./harmony-next/references/) |
+| DevEco emulator private interfaces | Local validation boundaries for starting Emulator without the IDE, `hdc + uitest`, HVD, logs, and diagnostics | [`DevEco模拟器私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco模拟器私有接口与AI自动化.md) |
+| Reference corpus | `3,692` Markdown files total, with `3,666` under `JsEtsAPIReference/` | [`harmony-next/references/`](./harmony-next/references/) |
 
 ## Recommended Retrieval Path
 
@@ -78,6 +81,17 @@ The core principle is simple: find the path first, then read the content.
 - Signing, emulators, real devices, and breakpoints
 - Standalone CLI setup and CI/CD integration
 - Performance analysis and release workflows
+- DevEco Studio / HarmonyOS Emulator automation: launching without the IDE, HVD, multi-instance runs, `hdc`, `uitest`, `aa`, `bm`, `hilog`, and `hidumper`
+
+### DevEco Emulator Private Interfaces
+
+This section covers private, undocumented interfaces. Trigger terms include: `DevEco Studio`, `HarmonyOS Emulator`, `Emulator -list -details`, `launch without IDE`, `HVD`, `hdc`, `uitest`, `uiInput`, `aa`, `bm`, `hilog`, `hidumper`, `snapshot_display`, `uinput`, `hitrace`, `multi-instance`, and `trace pipe`.
+
+Usage rules:
+
+- Read the private-interface chapter in [`harmony-next/SKILL.md`](./harmony-next/SKILL.md) first, then open [`DevEco模拟器私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco模拟器私有接口与AI自动化.md).
+- Re-verify the current DevEco / Emulator / SDK version and command capabilities before each run.
+- Real screenshots, layouts, log bundles, installs/uninstalls, port forwarding, and HVD create/delete flows require user confirmation and redaction.
 
 ### Agent Engineering Integration
 
@@ -130,10 +144,11 @@ A common approach is to place it in your Codex skills directory. If you already 
 
 In short: for Codex, the key is not “install a package”, but “place this skill directory where Codex will read it”.
 
-## What Matters in v1.2.0
+## Version Highlights
 
 | Version | Highlights |
 | --- | --- |
+| `v1.3.4` | Added a private, undocumented DevEco Studio emulator automation reference covering launch without the IDE, `hdc + uitest`, HVD, multi-instance runs, risk gates, timeouts, and redaction boundaries; updated `SKILL.md` trigger terms and task navigation |
 | `v1.2.0` | API 23 content is included; `references/INDEX.md` and `JsEtsAPIReference/INDEX.md` were rebuilt; legacy `capi/headers/*.md` pages were removed and replaced with direct links to real targets; `reference_compat.py` and link-audit tooling were added; both Chinese and English README files were synchronized |
 
 ## Reference Maintenance
