@@ -174,12 +174,14 @@ JsEtsAPIReference/guides/@Reusable装饰器：V1组件复用.md
 JsEtsAPIReference/guides/Ability Kit术语.md
 JsEtsAPIReference/guides/AppStorageV2（应用全局的UI状态存储）.md
 JsEtsAPIReference/guides/Connectivity Kit术语.md
+JsEtsAPIReference/guides/Environment：设备环境查询.md
 JsEtsAPIReference/guides/ExtensionAbility组件.md
 JsEtsAPIReference/guides/MDM Kit开发指南.md
 JsEtsAPIReference/guides/MDM Kit术语.md
 JsEtsAPIReference/guides/NFC标签读写开发指南.md
 JsEtsAPIReference/guides/PersistenceV2（持久化存储UI状态）.md
 JsEtsAPIReference/guides/Sendable对象简介.md
+JsEtsAPIReference/guides/UIAbility备份恢复.md
 JsEtsAPIReference/guides/UIAbility组件启动模式.md
 JsEtsAPIReference/guides/UIAbility组件基本用法.md
 JsEtsAPIReference/guides/UI国际化.md
@@ -192,6 +194,8 @@ JsEtsAPIReference/guides/bm工具.md
 JsEtsAPIReference/guides/if-else：条件渲染.md
 JsEtsAPIReference/guides/makeObserved接口：将非观察数据变为可观察数据.md
 JsEtsAPIReference/guides/module.json5配置文件.md
+JsEtsAPIReference/guides/wrapBuilder：封装全局@Builder.md
+JsEtsAPIReference/guides/云侧服务准备.md
 JsEtsAPIReference/guides/交互基础机制说明.md
 JsEtsAPIReference/guides/代理提醒（ArkTS）.md
 JsEtsAPIReference/guides/使用Picker选择媒体库资源.md
@@ -206,6 +210,7 @@ JsEtsAPIReference/guides/向用户申请授权.md
 JsEtsAPIReference/guides/启动应用内的UIAbility组件.md
 JsEtsAPIReference/guides/图片解码内存优化.md
 JsEtsAPIReference/guides/基于服务账号生成鉴权令牌.md
+JsEtsAPIReference/guides/基于服务账号生成鉴权令牌（Device Security）.md
 JsEtsAPIReference/guides/声明权限.md
 JsEtsAPIReference/guides/多应用管控.md
 JsEtsAPIReference/guides/安全控件概述.md
@@ -213,23 +218,29 @@ JsEtsAPIReference/guides/应用上下文Context.md
 JsEtsAPIReference/guides/应用启动框架AppStartup.md
 JsEtsAPIReference/guides/应用沙箱目录.md
 JsEtsAPIReference/guides/开发准备（媒体库）.md
+JsEtsAPIReference/guides/开放权限（用户授权）.md
 JsEtsAPIReference/guides/开通Device Security服务.md
 JsEtsAPIReference/guides/支持单复数.md
 JsEtsAPIReference/guides/支持的语言.md
+JsEtsAPIReference/guides/支持键盘输入事件.md
 JsEtsAPIReference/guides/数据库备份与恢复.md
 JsEtsAPIReference/guides/日志分析.md
+JsEtsAPIReference/guides/智能填充服务.md
 JsEtsAPIReference/guides/查询当前状态场景.md
 JsEtsAPIReference/guides/栅格布局 (GridRow-GridCol).md
 JsEtsAPIReference/guides/消息认证码计算HMAC.md
 JsEtsAPIReference/guides/状态管理V1-V2迁移指导.md
 JsEtsAPIReference/guides/状态管理V1和V2混用指导（API version 19及之后）.md
 JsEtsAPIReference/guides/状态管理概述.md
+JsEtsAPIReference/guides/用户文件URI介绍.md
 JsEtsAPIReference/guides/申请受限权限.md
+JsEtsAPIReference/guides/申请推送场景化消息权益.md
 JsEtsAPIReference/guides/申请访问剪贴板权限.md
 JsEtsAPIReference/guides/窗口开发术语.md
 JsEtsAPIReference/guides/线程间通信对象概述.md
 JsEtsAPIReference/guides/组件启动规则（FA模型）.md
 JsEtsAPIReference/guides/组件启动规则（Stage模型）.md
+JsEtsAPIReference/guides/耗时任务并发场景简介.md
 JsEtsAPIReference/guides/自定义渲染（XComponent）.md
 JsEtsAPIReference/guides/自定义节点概述.md
 JsEtsAPIReference/guides/获取Push Token.md
@@ -239,6 +250,7 @@ JsEtsAPIReference/guides/资源分类与访问.md
 JsEtsAPIReference/guides/通过用户首选项实现数据持久化.md
 JsEtsAPIReference/guides/通过键值型数据库实现数据持久化.md
 JsEtsAPIReference/guides/配置ArkTS卡片的配置文件.md
+JsEtsAPIReference/guides/非对称密钥生成和转换规格.md
 JsEtsAPIReference/guides/预览流二次处理（C-C++）.md
 JsEtsAPIReference/guides/（可选）开发消息回执.md
 JsEtsAPIReference/guides/（可选）配置应用内购买服务参数.md
