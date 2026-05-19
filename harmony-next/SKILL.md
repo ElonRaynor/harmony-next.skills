@@ -1,6 +1,8 @@
 ---
 name: harmony-next
 description: Use for HarmonyOS NEXT development help and local DevEco automation. Covers ArkTS/ArkUI/NDK API lookup, offline guide navigation, DevEco Studio and HarmonyOS Emulator tasks, hdc/uitest/aa/bm/hilog/hidumper diagnostics, and private DevEco interfaces such as CodeGenie, MCP, LanceDB, devecostudio://, ArkUI Inspector, Previewer, Profiler, Doctor, and UxTestService.
+metadata:
+  version: "1.3.5"
 ---
 
 # HarmonyOS NEXT Agent Guide
@@ -8,6 +10,20 @@ description: Use for HarmonyOS NEXT development help and local DevEco automation
 Use this skill to answer HarmonyOS NEXT questions with the bundled offline references. Keep context small: route the request first, then open only the specific Markdown files needed for the answer or action.
 
 Paths like `references/...` are relative to this skill directory (`harmony-next/`). If your current working directory is the repository root, either `cd harmony-next` first or prefix paths with `harmony-next/`.
+
+## Version
+
+Current local skill version: `v1.3.5`.
+
+Reference snapshot: bundled `references/` are an offline HarmonyOS API 12-23 snapshot, not live web docs.
+
+For "latest", "current", new API, or online-doc parity questions, compare this local version with GitHub Releases or nightly, and verify API behavior against Huawei online docs when precision matters.
+
+Install/update entrypoints:
+
+- Gemini CLI: `gemini skills install https://github.com/linhay/harmony-next.skills --path harmony-next --scope user`
+- Claude.ai / Claude Code: use the release `.skill` asset or the `harmony-next/` skill directory.
+- Codex: place `harmony-next/` in a Codex-readable skills directory; for project context only, start from this file and `references/INDEX.md`.
 
 ## Routing
 
