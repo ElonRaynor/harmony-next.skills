@@ -45,7 +45,7 @@
 - 新增 `harmony-next/scripts/sync_release_version.py` 作为版本同步单一执行入口。
 - GitHub Actions 发布流程在打包前解析 tag 或 `workflow_dispatch.inputs.version`，自动同步 `SKILL.md` 的 `metadata.version`、正文版本、隐藏版本，以及中英文 README 的 release badge/link。
 - 发布前固定运行 `python3 -m unittest discover -s harmony-next/tests -p 'test_*.py' -v`，避免版本元信息不同步时继续生成 `.skill` 产物。
-- `master` 自动发布 nightly 时不强行改稳定版本；tag 发布和手动指定版本发布会按目标版本重写打包工作区内的元信息。
+- `master` 每次 push 默认读取最新 `vX.Y.Z` tag 并自动递增 patch 版本发稳定 release；tag 发布和手动指定版本发布会按目标版本重写打包工作区内的元信息。
 
 ## Subagent 体验反馈修正
 

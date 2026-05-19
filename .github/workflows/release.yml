@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Stable release version to publish, e.g. v1.3.6. Leave empty for nightly from master.'
+        description: 'Stable release version to publish, e.g. v1.3.6. Leave empty to auto-bump the latest patch version.'
         required: false
         type: string
         default: ''
@@ -23,6 +23,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Resolve release version
         id: release-version
@@ -33,6 +35,16 @@ jobs:
             tag="${GITHUB_REF_NAME}"
           elif [[ -n "${INPUT_VERSION}" ]]; then
             tag="${INPUT_VERSION}"
+          elif [[ "${GITHUB_REF}" == refs/heads/master ]]; then
+            latest="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)"
+            if [[ -z "${latest}" ]]; then
+              tag="v1.0.0"
+            elif [[ "${latest}" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+              tag="v${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((BASH_REMATCH[3] + 1))"
+            else
+              echo "Could not parse latest release tag: ${latest}" >&2
+              exit 1
+            fi
           else
             tag=""
           fi
@@ -67,6 +79,17 @@ jobs:
           files: harmony-next.skill
           generate_release_notes: true
           append_body: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Auto Tagged Release
+        if: github.ref == 'refs/heads/master' && steps.release-version.outputs.tag != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release-version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          files: harmony-next.skill
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
