@@ -141,7 +141,7 @@ The official Codex Agent Skills docs define skills as the authoring format for r
 
 Official docs: <https://developers.openai.com/codex/skills>
 
-This repository is not currently packaged as a Codex plugin, so the official Codex setup path is to place it in an official skill scan location. Do not treat `~/.nolon/skills` as an official Codex path.
+This repository is not currently packaged as a Codex plugin, so the official Codex setup path is to place it in an official skill scan location.
 
 Official scan locations:
 

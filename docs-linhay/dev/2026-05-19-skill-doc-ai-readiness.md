@@ -51,7 +51,7 @@
 
 - OpenAI 官方 Codex Agent Skills 文档定义了 skill 扫描路径：repo 级 `.agents/skills`（从 `$CWD` 向上到 `$REPO_ROOT`）、用户级 `$HOME/.agents/skills`、管理员级 `/etc/codex/skills`，以及 Codex 内置 system skills。
 - README 与 `SKILL.md` 改为提供官方路径示例：`$REPO_ROOT/.agents/skills/harmony-next`、`$HOME/.agents/skills/harmony-next`、`/etc/codex/skills/harmony-next`。
-- `~/.nolon/skills` 不是 Codex 官方路径；本仓库当前也尚未发布 Codex plugin。若要做可安装分发，应按官方建议把 skill 打包成 Codex plugin。
+- 本仓库当前尚未发布 Codex plugin。若要做可安装分发，应按官方建议把 skill 打包成 Codex plugin。
 
 ## Subagent 体验反馈修正
 

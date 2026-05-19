@@ -141,7 +141,7 @@ claude --add-dir /path/to/harmony-next.skills/harmony-next
 
 官方文档：<https://developers.openai.com/codex/skills>
 
-本仓库当前还没有打包成 Codex plugin，因此 Codex 的官方接入方式是放入官方 skill 扫描路径。不要把 `~/.nolon/skills` 当作 Codex 官方路径。
+本仓库当前还没有打包成 Codex plugin，因此 Codex 的官方接入方式是放入官方 skill 扫描路径。
 
 可选官方路径：
 

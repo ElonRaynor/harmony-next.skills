@@ -59,7 +59,6 @@ class SkillMetadataTests(unittest.TestCase):
             "$REPO_ROOT/.agents/skills/harmony-next",
             "$HOME/.agents/skills/harmony-next",
             "/etc/codex/skills/harmony-next",
-            "不要把 `~/.nolon/skills` 当作 Codex 官方路径",
             "可安装分发单元是 Codex plugin",
         ]
         required_readme_en_fragments = [
@@ -70,7 +69,6 @@ class SkillMetadataTests(unittest.TestCase):
             "$REPO_ROOT/.agents/skills/harmony-next",
             "$HOME/.agents/skills/harmony-next",
             "/etc/codex/skills/harmony-next",
-            "Do not treat `~/.nolon/skills` as an official Codex path",
             "plugins are the installable distribution unit",
         ]
 
