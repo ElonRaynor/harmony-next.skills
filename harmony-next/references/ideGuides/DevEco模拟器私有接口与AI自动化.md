@@ -32,6 +32,26 @@ IMAGE_ROOT="$HOME/Library/Huawei/Sdk"
 
 已知验证过的环境线索：DevEco Studio 6.0.2，HarmonyOS Emulator 6.0.2.200。其他版本必须重新探测。
 
+## 最小只读探测流程
+
+首轮只做能力和状态摘要，不保存真实 UI、layout、日志原文或设备文件。每条命令必须由上层 runner 设置超时；macOS 默认不一定有 GNU `timeout`，不要依赖 shell 内置超时能力。
+
+```bash
+# runner timeout: 5s
+"$EMULATOR" -version
+
+# runner timeout: 5s
+"$EMULATOR" -list
+
+# runner timeout: 8s
+"$EMULATOR" -list -details
+
+# runner timeout: 5s
+"$HDC" list targets -v
+```
+
+只向用户摘要：Emulator 版本、HVD 名称/数量、HVD 是否运行、HDC target 数量、`Connected` target 列表。不要回显完整 JSON、完整 target 明细或日志。
+
 ## 风险分级
 
 ### 默认允许
@@ -91,6 +111,13 @@ wukong focus
 
 当前版本线索显示：直接启动 Emulator 通常需要 `-hvd`、`-path`、`-imageRoot`，并可能需要 `-t <trace-name>` 对应的本地占位通道。占位通道是启动期依赖，不要把它当稳定控制协议。
 
+`<trace-name>` 处理规则：
+
+- 优先沿用当前任务或已验证 helper 生成的唯一 trace name。
+- 找不到已验证来源时，可以生成仅用于本轮的唯一名称，例如 `ai-emu-<YYYYMMDDHHMMSS>`，但必须说明这不是稳定协议。
+- 若缺少占位通道导致启动失败，停止本轮启动尝试，只报告 Emulator 版本、HVD 名称、命令类型和裁剪后的错误摘要，不继续 UI 自动化。
+- 不记录或沉淀 HVD 内部字段、trace pipe 私有协议或未验证 helper 细节。
+
 确认后使用模板：
 
 ```bash
@@ -135,6 +162,15 @@ cd "/Applications/DevEco-Studio.app/Contents/tools/emulator"
 
 超时后停止 UI 操作，只报告 target 状态、boot 状态和裁剪后的日志摘要。
 
+## 失败分流
+
+- 没有 HDC target：停止 UI 自动化，报告 Emulator/HVD 探测摘要，建议用户确认是否启动 HVD。
+- 只有 `Offline` target：不执行 shell、uitest 或输入动作；报告 target 状态并建议重启/等待连接。
+- 多个 `Connected` target 且用户未指定：停止，要求用户选择 `127.0.0.1:<port>`。
+- boot completed 超时或不是 `true`：不点击、不输入，只保留 boot 参数和连接摘要。
+- `uitest dumpLayout -p /dev/null -a` 不支持或返回权限错误：不默认改为真实路径采集；先降级到其他只读诊断，真实 layout/screenshot 需确认。
+- 脱敏失败：不归档、不回显原文。
+
 ## UI 自动化
 
 优先使用设备侧 `uitest`，不要盲点桌面坐标。
@@ -168,7 +204,7 @@ cd "/Applications/DevEco-Studio.app/Contents/tools/emulator"
 
 规则：
 
-- 坐标必须来自当前 layout 或截图。
+- 坐标来源优先级：可解析的 dumpLayout 节点坐标 -> 用户确认后的截图辅助定位 -> 用户明确给出的坐标 -> 用户确认后的 `uinput` 或桌面坐标兜底。
 - 每步输入后重新探测状态。
 - 用户输入文本必须转义，不能拼接原文 shell。
 - `uinput` 只作为确认后的兜底。
@@ -225,6 +261,20 @@ param get persist.sys.hilog.loggable.global
 | `hilog -z 100` | 5s | 保留已返回内容 |
 
 禁止无超时运行：不带 `-z` / `-x` 的 `hilog`、`track-jpid`、`hitrace --record`、`wukong exec`、`uitest uiRecord record`、`uitest start-daemon`。
+
+## 确认请求模板
+
+需要确认时，明确动作、读取范围、是否写文件、是否保存原文、脱敏策略和停止条件：
+
+```text
+我需要执行会改变本机/模拟器状态的操作：<启动/停止/安装/采集/端口转发>。
+范围：<HVD/target/bundle/path>。
+会读取：<target 状态/boot 参数/裁剪日志/截图/layout/设备文件>。
+会写入：<无/本地路径/设备路径>。
+脱敏：<只保留摘要，不保存原文/保存附件前裁剪字段>。
+停止条件：<无 Connected target/boot 超时/命令失败/脱敏失败>。
+是否允许？
+```
 
 ## 输出与脱敏
 

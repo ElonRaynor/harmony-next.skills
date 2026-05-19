@@ -7,11 +7,14 @@ description: Use for HarmonyOS NEXT development help and local DevEco automation
 
 Use this skill to answer HarmonyOS NEXT questions with the bundled offline references. Keep context small: route the request first, then open only the specific Markdown files needed for the answer or action.
 
+Paths like `references/...` are relative to this skill directory (`harmony-next/`). If your current working directory is the repository root, either `cd harmony-next` first or prefix paths with `harmony-next/`.
+
 ## Routing
 
 1. **Classify the user request**
-   - API, component, error, or code example: use the offline API indexes.
-   - DevEco Studio or emulator automation: use the private-interface playbooks below.
+   - API, component, error, or code example: use `KITS.md`, `TASK_MAP.md`, and `INDEX.md`; do not read the DevEco playbooks.
+   - DevEco Studio IDE, plugins, local services, CodeGenie, MCP, LanceDB, or `devecostudio://`: read the IDE playbook.
+   - HarmonyOS Emulator, HVD, hdc, uitest, aa, bm, hilog, or hidumper automation: read the Emulator playbook.
    - Unknown domain: start with `references/TASK_MAP.md`, then refine through `references/INDEX.md`.
 
 2. **Choose the smallest index**
@@ -28,13 +31,19 @@ Use this skill to answer HarmonyOS NEXT questions with the bundled offline refer
 
 ## Lookup Commands
 
+From the skill directory:
+
 - 先按关键词命中路径：`rg -n "UIAbility|AbilityStage|Want" references/INDEX.md | head`
 - 查某个 `@ohos.*` 模块：`rg -n "@ohos\\.app\\.ability\\.|@ohos\\.ability\\." references/INDEX.md | rg "JsEtsAPIReference/" | head`
 - 查 NDK/C API 头文件：`rg -n "JsEtsAPIReference/topics/.*/.*\\.h\\.md$" references/INDEX.md | rg "(napi|arkui|window|ability)" | head`
 
+From the repository root, use `harmony-next/references/...` in the same commands.
+
 ## DevEco Emulator Automation
 
 Use when the user asks to start or inspect HarmonyOS Emulator without the IDE, operate the emulator from command line, or diagnose hdc/uitest/aa/bm/hilog/hidumper automation.
+
+Only read this playbook for Emulator/HVD/hdc/uitest/aa/bm/hilog/hidumper intent. For ordinary ArkTS, ArkUI, API, component, or error-code lookup, stay in the API indexes.
 
 Read `references/ideGuides/DevEco模拟器私有接口与AI自动化.md` before acting. Treat it as an agent playbook for private, version-sensitive behavior; verify the local DevEco/Emulator version before relying on paths, flags, output fields, or ports.
 
@@ -49,6 +58,8 @@ Default boundary:
 ## DevEco Studio Private Interfaces
 
 Use when the user asks about DevEco Studio internals or automation for CodeGenie, local AI/RAG/MCP, `devecostudio://`, Previewer, ArkUI Inspector, Profiler, Doctor, Diagnostic, FaultLog, UxTestService, plugin actions, tool windows, or services.
+
+Only read this playbook for DevEco Studio IDE/private-interface intent. For ordinary HarmonyOS API lookup, do not load it.
 
 Read `references/ideGuides/DevEco Studio IDE私有接口与AI自动化.md` before acting. Treat it as a safety-first playbook, not as a stable public API reference. Reconfirm the installed DevEco version and local paths before using any plugin ID, class name, URL scheme, port range, handler, cache path, or local service.
 

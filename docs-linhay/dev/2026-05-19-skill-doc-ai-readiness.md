@@ -24,3 +24,13 @@
 2. agent 首先读什么、运行什么、避免读什么？
 3. 哪些动作默认允许、需要确认、默认禁止？
 4. 最终应该向用户输出什么，哪些敏感内容不能输出？
+
+## Subagent 体验反馈修正
+
+使用三个 subagent 分别体验 `SKILL.md`、Emulator playbook 和 IDE playbook 后，保留以下修正：
+
+- `SKILL.md` 增加路径上下文说明：`references/...` 相对 `harmony-next/`，从仓库根目录执行时需加前缀或先 `cd harmony-next`。
+- `SKILL.md` 增加排他路由：普通 API/组件/错误码查询不读取 DevEco playbook；只有命中 IDE/Emulator/hdc 等意图时才进入对应 playbook。
+- Emulator playbook 增加最小只读探测流程、`trace-name` 处理规则、失败分流、坐标来源优先级和确认请求模板。
+- IDE playbook 收紧隐私边界：`strings/rg` 命中敏感字段不得原样回传，用户侧目录默认只报告存在性/数量/类型分布，读取 MCP/model provider 配置正文需确认。
+- IDE playbook 扩展输出格式，要求列出已执行/已跳过动作、确认需求、脱敏方式和证据等级。

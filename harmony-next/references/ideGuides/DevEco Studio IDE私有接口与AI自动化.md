@@ -51,6 +51,8 @@ unzip -p <plugin.jar> META-INF/plugin.xml
 strings <plugin.jar> | rg -i 'localhost|127\\.0\\.0\\.1|websocket|grpc|token|mcp|port'
 ```
 
+`strings` / `rg` 结果只能用于本地分类，不得原样回传。命中 `token`、`securityId`、`API key`、`Authorization`、cookie、内部 URL 或用户路径时，只报告“发现敏感字段线索”和类别，不显示值、上下文或完整路径。
+
 允许分析离线文件：`.htrace`、profiler snapshot、faultlog、stacktrace、appFreeze/cppCrash 文本、`.arkli`、`.preview` 产物。
 
 ### 需要用户确认
@@ -62,6 +64,7 @@ strings <plugin.jar> | rg -i 'localhost|127\\.0\\.0\\.1|websocket|grpc|token|mcp
 - 读取用户侧 recent projects、workspace、LocalHistory、聊天历史、缓存、日志正文或内部数据库。
 - 调用 CodeGenie localhost HTTP/WebSocket、LanceDB server、MCP server 或外部 LLM provider。
 - 创建、修改或删除 MCP 配置、模型配置、项目文件、SDK、缓存或 IDE 状态。
+- 读取 MCP/model provider 配置正文、env、headers、workspace 绑定信息或任何 credential-adjacent 字段。
 
 ### 默认禁止
 
@@ -108,6 +111,8 @@ devecostudio://sample/v1/import/fs?param={...}
 | `sample/v1/import/git` | 导入 Git 示例工程 | `repoUrl`、`branch`、`projectName`、`relativePath` | 只静态分析；实际打开需确认和隔离 |
 | `sample/v1/import/fs` | 导入下载文件/Zip 示例工程 | `downloadUrl`、`checksum`、`projectName` | 只静态分析；实际打开需确认和隔离 |
 
+URL 字符串解析属于 `allow`；实际 import、git remote 访问、download、写工程文件或打开 IDE 属于 `require_confirm`。未知 scheme/action 默认为 `deny`，除非用户明确要求在隔离测试环境中验证。
+
 未静态确认 `devecostudio://openFile` 或 `devecostudio://openProject`。实际打开 URL 前必须使用隔离用户、临时 VM 或测试项目。
 
 ## CodeGenie、本地 AI、RAG、MCP
@@ -122,7 +127,7 @@ devecostudio://sample/v1/import/fs?param={...}
 - `Contents/plugins/codegenie-plugin/lib/instrumented-CodeChat.jar`
 - `Contents/plugins/codegenie-plugin/lib/instrumented-codegenie-infrastructure.jar`
 
-已确认能力类别：
+已确认能力类别仅适用于已验证的 DevEco Studio 6.0.2 环境，不作为稳定 API：
 
 - 本地 VESO ONNX embedding 模型，输出维度线索为 `768`。
 - LanceDB 本地向量库，常见表名线索为 `knowledge_base`。
@@ -134,6 +139,7 @@ devecostudio://sample/v1/import/fs?param={...}
 agent 规则：
 
 - 不读取用户本地 `.lancedb`、聊天历史、模型配置数据库、headers、API key 或 token。
+- 不读取 MCP/model provider 配置正文、env、headers、workspace 绑定或 provider account 字段，除非用户确认读取范围和脱敏策略。
 - 不调用 `/models`、`/chat/completions`、WebSocket、MCP server 或外部 LLM provider，除非用户确认。
 - 不记录 `securityId`、端口、RAG chunk、prompt、源码片段或模型配置详情。
 - 若必须验证，先说明会触发的本地服务、网络流向、读取范围和脱敏策略。
@@ -218,7 +224,22 @@ agent 可以静态解析规则、参数 schema 和输入输出格式。真实运
 - `LocalHistory`、`fileHistory`、`editor/`、`vcs-log/`
 - `app-internal-state.db`
 
-默认只允许列目录、文件名、大小、mtime 和路径模式。读取正文、导出、清理或归档前必须确认并说明脱敏策略。
+默认只允许确认目录是否存在、文件数量和文件类型分布。展示文件名、mtime、大小、完整路径模式或正文前必须确认并说明脱敏策略，因为文件名本身也可能暴露项目、团队或业务信息。
+
+## 确认请求模板
+
+需要确认时，明确将启动什么、读取什么、是否联网、是否写文件、脱敏策略和回滚边界：
+
+```text
+我需要执行高风险 DevEco IDE 动作：<启动服务/读取配置/调用 localhost/打开 URL/连接设备>。
+会启动：<无/IDE/JCEF/Preview Server/CodeGenie/LanceDB/MCP>。
+会读取：<插件静态文件/用户配置/日志/缓存/设备数据>。
+网络或 localhost：<无/localhost/外部 provider>。
+会写入：<无/配置文件/项目文件/诊断输出>。
+脱敏：<只报告类别和摘要，不显示 token、路径、源码、日志正文>。
+回滚：<无写入/可删除临时文件/不可自动回滚>。
+是否允许？
+```
 
 ## 输出格式
 
@@ -228,8 +249,13 @@ agent 可以静态解析规则、参数 schema 和输入输出格式。真实运
 scope: static-analysis|offline-file|service-start|device-connected
 version: <DevEco version or unknown>
 paths_checked: <small list>
+actions_taken: <short list>
+actions_skipped: <short list>
 capability: <what was found>
 risk: allow|require_confirm|deny
+confirmation_needed: <yes/no + reason>
+redaction: <what was removed or summarized>
+evidence_level: static|offline-artifact|runtime-probe|user-confirmed
 next_action: <one concrete step>
 raw_sensitive_content_stored: false
 ```

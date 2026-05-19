@@ -27,6 +27,8 @@
 
 ## IDE & Development
 - 推荐目录: ideGuides/
+- 私有未公开接口入口：`ideGuides/DevEco模拟器私有接口与AI自动化.md`
+- IDE 私有未公开接口入口：`ideGuides/DevEco Studio IDE私有接口与AI自动化.md`
 - Keywords: 签名, Signing, 证书, Profile
 - Keywords: 模拟器, Emulator, Simulator, 真机, 运行
 - Keywords: 调试, Debug, 断点, LLDB
@@ -36,8 +38,6 @@
 - Keywords: DevEco Studio IDE, CodeGenie, MCP, LanceDB, devecostudio://, ArkUI Inspector, Previewer, Profiler, Doctor, Diagnostic, FaultLog, UxTestService
 - Keywords: 独立工具包, Standalone CLI, OHOS_BASE_SDK_HOME, 环境变量, CI/CD配置
 - 快速命中: `rg -n "(签名|Signing|hdc|hvigor|ohpm|LLDB|HiLog)" INDEX.md | rg \"^ideGuides/\" | head`
-- 私有未公开接口入口：`ideGuides/DevEco模拟器私有接口与AI自动化.md`
-- IDE 私有未公开接口入口：`ideGuides/DevEco Studio IDE私有接口与AI自动化.md`
 
 ## Performance & Optimization
 - 推荐目录: performanceAndStandards/
