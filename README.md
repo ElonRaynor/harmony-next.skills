@@ -2,6 +2,8 @@
 
 给 Gemini CLI、Claude Code、Codex 等 AI 编程助手使用的 HarmonyOS NEXT 离线参考技能库。
 
+语言：中文 | [English](./README_en.md)
+
 [![release](https://img.shields.io/badge/release-v1.3.5-1f6feb?style=flat-square)](https://github.com/linhay/harmony-next.skills/releases/tag/v1.3.5)
 [![readme](https://img.shields.io/badge/readme-English-0f766e?style=flat-square)](./README_en.md)
 ![docs](https://img.shields.io/badge/docs-3,693%20markdown%20files-7c3aed?style=flat-square)

@@ -46,6 +46,10 @@ class SkillMetadataTests(unittest.TestCase):
                 self.assertIn(f"release-{tag_version}-1f6feb", text)
                 self.assertIn(f"releases/tag/{tag_version}", text)
 
+    def test_readmes_have_language_switches(self) -> None:
+        self.assertIn("语言：中文 | [English](./README_en.md)", self.readme_text)
+        self.assertIn("Language: English | [中文](./README.md)", self.readme_en_text)
+
     def test_skill_documents_freshness_and_installation_paths(self) -> None:
         required_fragments = [
             "Reference snapshot:",
