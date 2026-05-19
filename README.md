@@ -137,26 +137,36 @@ claude --add-dir /path/to/harmony-next.skills/harmony-next
 
 ### Codex
 
-更准确地说，这个仓库对 Codex 来讲是“技能/参考知识源”，不是一条 `npm install` 就完成的插件安装命令。
+官方 Codex Agent Skills 文档说明：skill 是可复用工作流的创作格式；直接 skill 目录用于本地创作与发现；可安装分发单元是 Codex plugin。
 
-推荐接入方式：
+官方文档：<https://developers.openai.com/codex/skills>
 
-1. 下载或克隆本仓库：
+本仓库当前还没有打包成 Codex plugin，因此 Codex 的官方接入方式是放入官方 skill 扫描路径。不要把 `~/.nolon/skills` 当作 Codex 官方路径。
+
+可选官方路径：
+
+| 范围 | 路径 |
+| --- | --- |
+| Repo | `$CWD/.agents/skills/harmony-next` |
+| Repo | `$CWD/../.agents/skills/harmony-next` |
+| Repo | `$REPO_ROOT/.agents/skills/harmony-next` |
+| User | `$HOME/.agents/skills/harmony-next` |
+| Admin | `/etc/codex/skills/harmony-next` |
+
+示例：安装到当前用户的官方 skill 目录：
 
 ```bash
 git clone https://github.com/linhay/harmony-next.skills.git
+mkdir -p "$HOME/.agents/skills"
+ln -s "$(pwd)/harmony-next.skills/harmony-next" "$HOME/.agents/skills/harmony-next"
 ```
 
-2. 将 `harmony-next/` 目录放到 Codex 可读取的技能路径下。
+如果要让团队在某个仓库里自动发现这个 skill，把 `harmony-next/` 复制或软链到目标仓库的 `$REPO_ROOT/.agents/skills/harmony-next`。Codex 会从当前工作目录向上扫描 `.agents/skills`。
 
-常见做法是放到你自己的 Codex 技能目录中，再让 Codex 从该目录加载；如果你已经有项目级技能目录，也可以直接把 `harmony-next/` 放进去。
-
-3. 如果你不是按“技能目录”接入，而是把它当项目内参考库使用，至少应让 Codex 优先读取这两个入口文件：
+入口文件：
 
 - [`harmony-next/SKILL.md`](https://github.com/linhay/harmony-next.skills/blob/master/harmony-next/SKILL.md)
 - [`harmony-next/references/INDEX.md`](https://github.com/linhay/harmony-next.skills/blob/master/harmony-next/references/INDEX.md)
-
-一句话说清楚：对 Codex 来说，核心不是“安装一个包”，而是“把这份技能目录放到它会读取的位置”。
 
 ## 版本重点
 

@@ -50,6 +50,37 @@ class SkillMetadataTests(unittest.TestCase):
         self.assertIn("语言：中文 | [English](./README_en.md)", self.readme_text)
         self.assertIn("Language: English | [中文](./README.md)", self.readme_en_text)
 
+    def test_readmes_document_official_codex_skill_locations(self) -> None:
+        required_readme_fragments = [
+            "官方 Codex Agent Skills 文档",
+            "https://developers.openai.com/codex/skills",
+            "$CWD/.agents/skills/harmony-next",
+            "$CWD/../.agents/skills/harmony-next",
+            "$REPO_ROOT/.agents/skills/harmony-next",
+            "$HOME/.agents/skills/harmony-next",
+            "/etc/codex/skills/harmony-next",
+            "不要把 `~/.nolon/skills` 当作 Codex 官方路径",
+            "可安装分发单元是 Codex plugin",
+        ]
+        required_readme_en_fragments = [
+            "official Codex Agent Skills docs",
+            "https://developers.openai.com/codex/skills",
+            "$CWD/.agents/skills/harmony-next",
+            "$CWD/../.agents/skills/harmony-next",
+            "$REPO_ROOT/.agents/skills/harmony-next",
+            "$HOME/.agents/skills/harmony-next",
+            "/etc/codex/skills/harmony-next",
+            "Do not treat `~/.nolon/skills` as an official Codex path",
+            "plugins are the installable distribution unit",
+        ]
+
+        for fragment in required_readme_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, self.readme_text)
+        for fragment in required_readme_en_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, self.readme_en_text)
+
     def test_skill_documents_freshness_and_installation_paths(self) -> None:
         required_fragments = [
             "Reference snapshot:",
@@ -61,6 +92,10 @@ class SkillMetadataTests(unittest.TestCase):
             "Claude.ai",
             "Claude Code",
             "Codex",
+            "$REPO_ROOT/.agents/skills/harmony-next",
+            "$HOME/.agents/skills/harmony-next",
+            "/etc/codex/skills/harmony-next",
+            "package it as a Codex plugin",
         ]
 
         for fragment in required_fragments:

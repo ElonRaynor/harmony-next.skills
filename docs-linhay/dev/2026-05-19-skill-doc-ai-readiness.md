@@ -47,6 +47,12 @@
 - 发布前固定运行 `python3 -m unittest discover -s harmony-next/tests -p 'test_*.py' -v`，避免版本元信息不同步时继续生成 `.skill` 产物。
 - `master` 每次 push 默认读取最新 `vX.Y.Z` tag 并自动递增 patch 版本发稳定 release；tag 发布和手动指定版本发布会按目标版本重写打包工作区内的元信息。
 
+### Codex 安装边界
+
+- OpenAI 官方 Codex Agent Skills 文档定义了 skill 扫描路径：repo 级 `.agents/skills`（从 `$CWD` 向上到 `$REPO_ROOT`）、用户级 `$HOME/.agents/skills`、管理员级 `/etc/codex/skills`，以及 Codex 内置 system skills。
+- README 与 `SKILL.md` 改为提供官方路径示例：`$REPO_ROOT/.agents/skills/harmony-next`、`$HOME/.agents/skills/harmony-next`、`/etc/codex/skills/harmony-next`。
+- `~/.nolon/skills` 不是 Codex 官方路径；本仓库当前也尚未发布 Codex plugin。若要做可安装分发，应按官方建议把 skill 打包成 Codex plugin。
+
 ## Subagent 体验反馈修正
 
 使用三个 subagent 分别体验 `SKILL.md`、Emulator playbook 和 IDE playbook 后，保留以下修正：
