@@ -59,3 +59,17 @@ git diff --check
 - 模板副本 `ohpm install` 通过。
 
 Hvigor 构建验证在本机被环境阻塞：当前 DevEco Studio SDK 为 HarmonyOS 6.0.2 / API 22，模板默认 `5.0.0(12)`，运行 `hvigorw --mode module -p module=entry@default assembleHap` 报 `SDK component missing`。这说明本机缺少 API 12 SDK 组件，未发现模板文件结构或 JSON 解析问题。
+
+## API 22 复测补充
+
+用户要求继续使用本机 HarmonyOS 6.0.2 / API 22 验证。复测发现 `DEVECO_SDK_HOME` 必须指向 SDK 根目录 `/Applications/DevEco-Studio.app/Contents/sdk`，不能指向 `sdk/default`；修正后 Hvigor 进入模板 schema 校验，并发现 API 22 下 `AppScope/app.json5` 必须声明 `icon`。
+
+补充 `AppScope/resources/base/media/app_icon.png`、app `"icon": "$media:app_icon"`、Ability `"icon": "$media:app_icon"` 与 `"startWindowIcon": "$media:app_icon"` 后，使用临时副本将 `compatibleSdkVersion` / `targetSdkVersion` 改为 `6.0.2(22)` 验证通过：
+
+```bash
+DEVECO_SDK_HOME=/Applications/DevEco-Studio.app/Contents/sdk \
+  /Applications/DevEco-Studio.app/Contents/tools/hvigor/bin/hvigorw \
+  --mode module -p module=entry@default assembleHap
+```
+
+结果：`BUILD SUCCESSFUL in 6 s 308 ms`，产物为 `entry/build/default/outputs/default/entry-default-unsigned.hap`。因为模板不携带签名材料，Hvigor 输出 `No signingConfig found for product default` 警告并生成 unsigned HAP，符合模板边界。

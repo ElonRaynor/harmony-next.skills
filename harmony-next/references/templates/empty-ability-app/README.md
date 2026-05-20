@@ -28,6 +28,8 @@
 1. `AppScope/app.json5` 的 `bundleName`。
 2. `AppScope/resources/base/element/string.json` 的 `app_name`。
 3. 如需真机构建签名，在目标工程内用 DevEco Studio 或本地签名配置生成 `signingConfigs`，不要把个人签名材料提交到模板。
+4. 如需替换应用图标，覆盖 `AppScope/resources/base/media/app_icon.png` 即可。
+5. `entry/src/main/module.json5` 的 Ability `icon` 和 `startWindowIcon` 默认复用同一资源。
 
 基本校验：
 

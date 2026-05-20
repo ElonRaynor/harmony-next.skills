@@ -24,6 +24,7 @@ empty-ability-app/
 ├── hvigor/hvigor-config.json5
 ├── AppScope/app.json5
 ├── AppScope/resources/base/element/string.json
+├── AppScope/resources/base/media/app_icon.png
 └── entry/
     ├── oh-package.json5
     ├── build-profile.json5
@@ -51,7 +52,7 @@ empty-ability-app/
 | ability name | `EntryAbility` |
 | runtimeOS | `HarmonyOS` |
 
-复制后按目标项目修改 `AppScope/app.json5` 中的 `bundleName`，并同步更新 smoke 脚本里的 `BUNDLE`。如果需要签名构建，由目标项目自行生成 `signingConfigs`；模板不携带任何个人证书、p12、profile 或本机绝对路径。
+复制后按目标项目修改 `AppScope/app.json5` 中的 `bundleName`，并同步更新 smoke 脚本里的 `BUNDLE`。如果需要签名构建，由目标项目自行生成 `signingConfigs`；模板不携带任何个人证书、p12、profile 或本机绝对路径。应用图标来自 DevEco Studio 官方 `New Project` 模板的 `app_icon.png`，可在目标工程内替换。
 
 ## 静态校验
 

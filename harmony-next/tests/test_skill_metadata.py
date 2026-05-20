@@ -188,6 +188,7 @@ class SkillMetadataTests(unittest.TestCase):
             "hvigor/hvigor-config.json5",
             "AppScope/app.json5",
             "AppScope/resources/base/element/string.json",
+            "AppScope/resources/base/media/app_icon.png",
             "entry/oh-package.json5",
             "entry/build-profile.json5",
             "entry/hvigorfile.ts",
@@ -224,9 +225,12 @@ class SkillMetadataTests(unittest.TestCase):
         )
 
         self.assertEqual(app_json["app"]["bundleName"], "com.example.emptyability")
+        self.assertEqual(app_json["app"]["icon"], "$media:app_icon")
         self.assertEqual(module_json["module"]["name"], "entry")
         self.assertEqual(module_json["module"]["mainElement"], "EntryAbility")
         self.assertEqual(module_json["module"]["abilities"][0]["srcEntry"], "./ets/entryability/EntryAbility.ets")
+        self.assertEqual(module_json["module"]["abilities"][0]["icon"], "$media:app_icon")
+        self.assertEqual(module_json["module"]["abilities"][0]["startWindowIcon"], "$media:app_icon")
         self.assertEqual(main_pages["src"], ["pages/Index"])
         self.assertEqual(build_profile["app"]["products"][0]["compatibleSdkVersion"], "5.0.0(12)")
         self.assertEqual(build_profile["app"]["products"][0]["targetSdkVersion"], "5.0.0(12)")
@@ -235,6 +239,8 @@ class SkillMetadataTests(unittest.TestCase):
 
         for path in EMPTY_ABILITY_TEMPLATE_ROOT.rglob("*"):
             if path.is_file():
+                if path.suffix == ".png":
+                    continue
                 text = path.read_text(encoding="utf-8")
                 with self.subTest(path=path.relative_to(EMPTY_ABILITY_TEMPLATE_ROOT).as_posix()):
                     self.assertNotIn("${", text)
