@@ -3693,6 +3693,7 @@ ndkGuides/NDK开发与Node-API指南.md
 performanceAndStandards/应用体验与性能规范.md
 performanceAndStandards/性能调优与Profiler指南.md
 publishing/应用上架与发布指南.md
+quickStart/ets/minimal-project-scaffold.md
 quickStart/ets/使用真机运行应用.md
 quickStart/ets/创建一个新工程.md
 quickStart/ets/实现页面跳转.md
@@ -3700,4 +3701,5 @@ quickStart/ets/恭喜您.md
 quickStart/ets/概述.md
 quickStart/ets/编写第一个页面.md
 quickStart/ets/编写第二个页面.md
+templates/empty-ability-app/README.md
 testing/应用测试与Hypium指南.md

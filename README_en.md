@@ -4,7 +4,7 @@ An offline HarmonyOS NEXT reference skill for coding agents such as Gemini CLI, 
 
 Language: English | [中文](./README.md)
 
-[![release](https://img.shields.io/badge/release-v1.3.6-1f6feb?style=flat-square)](https://github.com/linhay/harmony-next.skills/releases/tag/v1.3.6)
+[![release](https://img.shields.io/badge/release-v1.3.7-1f6feb?style=flat-square)](https://github.com/linhay/harmony-next.skills/releases/tag/v1.3.7)
 [![readme](https://img.shields.io/badge/readme-%E4%B8%AD%E6%96%87-0f766e?style=flat-square)](./README.md)
 ![docs](https://img.shields.io/badge/docs-3,693%20markdown%20files-7c3aed?style=flat-square)
 ![js-ets](https://img.shields.io/badge/JsEtsAPIReference-3,666%20files-b45309?style=flat-square)
@@ -35,6 +35,7 @@ The goal is to turn those questions into local file lookups that are traceable, 
 | More than API docs | Includes IDE setup, signing, debugging, release, performance, multi-device, and NDK guidance |
 | Private-interface isolation | DevEco emulator and IDE private capabilities each live in separate chapters with version checks and risk gates |
 | Non-interactive automation policy | DevEco emulator automation supports `HARMONY_NEXT_AUTOMATION_POLICY`; policy is an execution mode, not an authorization gate |
+| Copyable minimal project | Provides `references/templates/empty-ability-app` for HDC / `uitest dumpLayout` / screenshot smoke tests |
 
 ## Repository Overview
 
@@ -45,6 +46,8 @@ The goal is to turn those questions into local file lookups that are traceable, 
 | Task navigation | Map UI, lifecycle, network, media, NDK, release, and other tasks to keywords | [`references/TASK_MAP.md`](./harmony-next/references/TASK_MAP.md) |
 | Global index | Full Markdown path index for the reference corpus | [`references/INDEX.md`](./harmony-next/references/INDEX.md) |
 | Bucketed API index | Focused index for `JsEtsAPIReference/`, covering modules, topics, types, errors, and guides | [`JsEtsAPIReference/INDEX.md`](./harmony-next/references/JsEtsAPIReference/INDEX.md) |
+| Empty Ability minimal project | Copyable HarmonyOS NEXT smoke fixture with defaults `com.example.emptyability` / `EntryAbility` / `5.0.0(12)` | [`references/templates/empty-ability-app`](./harmony-next/references/templates/empty-ability-app/) |
+| Minimal project scaffold guide | Explains copy, `ohpm install`, `hvigorw --mode module`, HDC launch, and `uitest dumpLayout` smoke validation | [`minimal-project-scaffold.md`](./harmony-next/references/quickStart/ets/minimal-project-scaffold.md) |
 | DevEco emulator private interfaces | Local validation boundaries for starting Emulator without the IDE, `hdc + uitest`, HVD, logs, and diagnostics | [`DevEco模拟器私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco模拟器私有接口与AI自动化.md) |
 | DevEco IDE private interfaces | Static validation boundaries for CodeGenie, local RAG/MCP, `devecostudio://`, Previewer, ArkUI Inspector, Profiler, Doctor, and UxTestService | [`DevEco Studio IDE私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco%20Studio%20IDE私有接口与AI自动化.md) |
 | Reference corpus | `3,693` Markdown files total, with `3,666` under `JsEtsAPIReference/` | [`harmony-next/references/`](./harmony-next/references/) |
@@ -87,6 +90,7 @@ The core principle is simple: find the path first, then read the content.
 - Standalone CLI setup and CI/CD integration
 - Performance analysis and release workflows
 - DevEco Studio / HarmonyOS Emulator automation: launching without the IDE, HVD, multi-instance runs, `hdc`, `uitest`, `aa`, `bm`, `hilog`, and `hidumper`
+- Copy `references/templates/empty-ability-app` to generate a minimal Empty Ability fixture; the page exposes `smoke-increment` for `uitest dumpLayout`, screenshots, and log smoke checks
 
 ### DevEco Emulator Private Interfaces
 
@@ -174,6 +178,7 @@ Entry files:
 
 | Version | Highlights |
 | --- | --- |
+| `v1.3.7` | Added a copyable HarmonyOS NEXT Empty Ability minimal test project template: `references/templates/empty-ability-app`; defaults to `com.example.emptyability` / `EntryAbility` / `5.0.0(12)` and documents `ohpm install`, `hvigorw --mode module`, HDC launch, and `uitest dumpLayout` smoke validation |
 | `v1.3.6` | Added a non-interactive automation policy for the DevEco emulator playbook: users are assumed to have full authority and `policy` only means execution mode; supports `readonly/evidence/automation/diagnostic/break-glass`, artifact directories, redaction metadata, and machine-readable blocked output |
 | `v1.3.5` | Added a private, undocumented DevEco Studio IDE capability reference covering CodeGenie local RAG/MCP/LanceDB, `devecostudio://`, Previewer, ArkUI Inspector, Profiler, Doctor, UxTestService, plugin entry indexes, and privacy risk gates; updated README and trigger terms |
 | `v1.3.4` | Added a private, undocumented DevEco Studio emulator automation reference covering launch without the IDE, `hdc + uitest`, HVD, multi-instance runs, risk gates, timeouts, and redaction boundaries; updated `SKILL.md` trigger terms and task navigation |

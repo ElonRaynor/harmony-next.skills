@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import sys
@@ -14,6 +15,8 @@ SKILL_PATH = SKILL_ROOT / "SKILL.md"
 README_PATH = REPO_ROOT / "README.md"
 README_EN_PATH = REPO_ROOT / "README_en.md"
 EMULATOR_PLAYBOOK_PATH = SKILL_ROOT / "references" / "ideGuides" / "DevEco模拟器私有接口与AI自动化.md"
+EMPTY_ABILITY_TEMPLATE_ROOT = SKILL_ROOT / "references" / "templates" / "empty-ability-app"
+MINIMAL_SCAFFOLD_DOC_PATH = SKILL_ROOT / "references" / "quickStart" / "ets" / "minimal-project-scaffold.md"
 SCRIPT_ROOT = SKILL_ROOT / "scripts"
 sys.path.insert(0, str(SCRIPT_ROOT))
 
@@ -26,6 +29,7 @@ class SkillMetadataTests(unittest.TestCase):
         self.readme_text = README_PATH.read_text(encoding="utf-8")
         self.readme_en_text = README_EN_PATH.read_text(encoding="utf-8")
         self.emulator_playbook_text = EMULATOR_PLAYBOOK_PATH.read_text(encoding="utf-8")
+        self.minimal_scaffold_text = MINIMAL_SCAFFOLD_DOC_PATH.read_text(encoding="utf-8")
 
     def test_skill_exposes_current_version_for_agents(self) -> None:
         metadata_version = re.search(r"version:\s*\"(\d+\.\d+\.\d+)\"", self.skill_text)
@@ -173,6 +177,78 @@ class SkillMetadataTests(unittest.TestCase):
             with self.subTest(fragment=fragment):
                 self.assertNotIn(fragment, self.skill_text)
                 self.assertNotIn(fragment, self.emulator_playbook_text)
+
+    def test_empty_ability_template_is_copyable_for_smoke_tests(self) -> None:
+        required_paths = [
+            "README.md",
+            "oh-package.json5",
+            "package.json",
+            "build-profile.json5",
+            "hvigorfile.ts",
+            "hvigor/hvigor-config.json5",
+            "AppScope/app.json5",
+            "AppScope/resources/base/element/string.json",
+            "entry/oh-package.json5",
+            "entry/build-profile.json5",
+            "entry/hvigorfile.ts",
+            "entry/src/main/module.json5",
+            "entry/src/main/ets/entryability/EntryAbility.ets",
+            "entry/src/main/ets/pages/Index.ets",
+            "entry/src/main/resources/base/element/color.json",
+            "entry/src/main/resources/base/element/float.json",
+            "entry/src/main/resources/base/element/string.json",
+            "entry/src/main/resources/base/profile/main_pages.json",
+        ]
+        required_fragments = [
+            "references/templates/empty-ability-app",
+            "com.example.emptyability",
+            "EntryAbility",
+            "5.0.0(12)",
+            "ohpm install",
+            "hvigorw --mode module",
+            "uitest dumpLayout",
+            "smoke-increment",
+        ]
+
+        for relative_path in required_paths:
+            with self.subTest(path=relative_path):
+                self.assertTrue((EMPTY_ABILITY_TEMPLATE_ROOT / relative_path).is_file())
+
+        app_json = json.loads((EMPTY_ABILITY_TEMPLATE_ROOT / "AppScope" / "app.json5").read_text(encoding="utf-8"))
+        module_json = json.loads((EMPTY_ABILITY_TEMPLATE_ROOT / "entry" / "src" / "main" / "module.json5").read_text(encoding="utf-8"))
+        build_profile = json.loads((EMPTY_ABILITY_TEMPLATE_ROOT / "build-profile.json5").read_text(encoding="utf-8"))
+        main_pages = json.loads(
+            (EMPTY_ABILITY_TEMPLATE_ROOT / "entry" / "src" / "main" / "resources" / "base" / "profile" / "main_pages.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        self.assertEqual(app_json["app"]["bundleName"], "com.example.emptyability")
+        self.assertEqual(module_json["module"]["name"], "entry")
+        self.assertEqual(module_json["module"]["mainElement"], "EntryAbility")
+        self.assertEqual(module_json["module"]["abilities"][0]["srcEntry"], "./ets/entryability/EntryAbility.ets")
+        self.assertEqual(main_pages["src"], ["pages/Index"])
+        self.assertEqual(build_profile["app"]["products"][0]["compatibleSdkVersion"], "5.0.0(12)")
+        self.assertEqual(build_profile["app"]["products"][0]["targetSdkVersion"], "5.0.0(12)")
+        self.assertEqual(build_profile["app"]["products"][0]["runtimeOS"], "HarmonyOS")
+        self.assertEqual(build_profile["app"]["signingConfigs"], [])
+
+        for path in EMPTY_ABILITY_TEMPLATE_ROOT.rglob("*"):
+            if path.is_file():
+                text = path.read_text(encoding="utf-8")
+                with self.subTest(path=path.relative_to(EMPTY_ABILITY_TEMPLATE_ROOT).as_posix()):
+                    self.assertNotIn("${", text)
+                    self.assertNotIn("/Users/", text)
+                    self.assertNotIn("certpath", text)
+                    self.assertNotIn("storePassword", text)
+                    self.assertNotIn("keyPassword", text)
+
+        for fragment in required_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, self.minimal_scaffold_text)
+                self.assertIn(fragment, self.readme_text)
+                self.assertIn(fragment, self.readme_en_text)
+                self.assertIn(fragment, self.skill_text)
 
     def test_sync_release_version_updates_skill_and_readmes(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
