@@ -205,9 +205,14 @@ class SkillMetadataTests(unittest.TestCase):
             "com.example.emptyability",
             "EntryAbility",
             "5.0.0(12)",
+            "6.0.2(22)",
+            "DEVECO_SDK_HOME=/Applications/DevEco-Studio.app/Contents/sdk",
             "ohpm install",
             "hvigorw --mode module",
+            "startWindowIcon",
             "uitest dumpLayout",
+            "uitest uiInput click",
+            "Harmony Smoke Tapped",
             "smoke-increment",
         ]
 

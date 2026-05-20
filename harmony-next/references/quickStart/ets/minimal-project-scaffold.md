@@ -68,6 +68,28 @@ cd <target-repo>/harmony-empty-ability
 find entry/build -name '*.hap' -print
 ```
 
+### SDK 版本适配验证
+
+模板默认面向 `5.0.0(12)`。当目标环境需要验证其他 SDK 版本时，在复制出的 fixture 中覆盖 `compatibleSdkVersion` 和 `targetSdkVersion` 即可；例如 HarmonyOS 6.0.2 / API 22 使用 `6.0.2(22)`：
+
+1. 保持模板默认 SDK 不变，把目标版本覆盖放在复制出的 fixture 内。
+2. 将根 `build-profile.json5` 内 `compatibleSdkVersion` 和 `targetSdkVersion` 设置为目标 SDK，例如 `6.0.2(22)`。
+3. 构建时将 `DEVECO_SDK_HOME` 指向 SDK 根目录，而不是 `sdk/default`。
+
+```bash
+DEVECO_SDK_HOME=/Applications/DevEco-Studio.app/Contents/sdk \
+  /Applications/DevEco-Studio.app/Contents/tools/hvigor/bin/hvigorw \
+  --mode module -p module=entry@default assembleHap
+```
+
+API 22 schema 会校验图标字段。模板必须保留：
+
+- `AppScope/resources/base/media/app_icon.png`
+- `AppScope/app.json5` 中的 app `icon`
+- `entry/src/main/module.json5` 中 Ability 的 `icon` 和 `startWindowIcon`
+
+模板不携带签名材料，生成 unsigned HAP 时出现 `No signingConfig` 类警告属于预期边界；支持使用 unsigned HAP 在模拟器上做安装、启动和 UI smoke 验证。
+
 ## Emulator smoke
 
 ```bash
@@ -91,3 +113,20 @@ HAP="$(find entry/build -name '*.hap' | head -1)"
 - `smoke-increment`
 
 这些信号可用于 HDC / `uitest dumpLayout` / screenshot / log 采集链路的自动化 smoke。
+
+### 点击 smoke
+
+如果要验证页面状态流转，先保存一份 layout，定位 `smoke-increment` 的 `bounds`，再用中心点点击并重新 dump：
+
+```bash
+"$HDC" -t "$TARGET" shell uitest dumpLayout -p /data/local/tmp/empty_ability_before.json -a
+"$HDC" -t "$TARGET" file recv /data/local/tmp/empty_ability_before.json ./empty_ability_before.json
+
+# 示例 bounds 为 [468,1526][841,1666] 时，中心点约为 654,1596。
+"$HDC" -t "$TARGET" shell uitest uiInput click 654 1596
+
+"$HDC" -t "$TARGET" shell uitest dumpLayout -p /data/local/tmp/empty_ability_after.json -a
+"$HDC" -t "$TARGET" file recv /data/local/tmp/empty_ability_after.json ./empty_ability_after.json
+```
+
+点击后应从 `Harmony Smoke Ready` / `tapCount=0` 变为 `Harmony Smoke Tapped` / `tapCount=1`。

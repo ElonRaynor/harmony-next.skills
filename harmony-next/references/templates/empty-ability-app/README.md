@@ -39,6 +39,19 @@ cd <copied-project>
 /Applications/DevEco-Studio.app/Contents/tools/hvigor/bin/hvigorw --mode module -p module=entry@default assembleHap
 ```
 
+SDK 版本适配验证：
+
+- 模板默认 SDK 为 `5.0.0(12)`；目标环境需要其他 SDK 时，在复制出的 fixture 内覆盖 `compatibleSdkVersion` 和 `targetSdkVersion`。
+- HarmonyOS 6.0.2 / API 22 对应 `6.0.2(22)`。
+- 构建时 `DEVECO_SDK_HOME` 指向 SDK 根目录，例如 `/Applications/DevEco-Studio.app/Contents/sdk`，不要指向 `sdk/default`。
+- API 22 需要保留 app `icon`、Ability `icon`、`startWindowIcon` 和 `AppScope/resources/base/media/app_icon.png`。
+
+```bash
+DEVECO_SDK_HOME=/Applications/DevEco-Studio.app/Contents/sdk \
+  /Applications/DevEco-Studio.app/Contents/tools/hvigor/bin/hvigorw \
+  --mode module -p module=entry@default assembleHap
+```
+
 HDC / Emulator smoke：
 
 ```bash
@@ -53,6 +66,12 @@ HAP="$(find entry/build -name '*.hap' | head -1)"
 "$HDC" -t "$TARGET" shell uitest dumpLayout -p /dev/null -a
 "$HDC" -t "$TARGET" shell uitest screenCap -p /dev/null
 ```
+
+交互 smoke：
+
+1. 从 `dumpLayout` 找到 `smoke-increment` 的 `bounds`。
+2. 用 `uitest uiInput click <center-x> <center-y>` 点击按钮。
+3. 重新 `dumpLayout`，断言 `tapCount=1` 和 `Harmony Smoke Tapped`。
 
 不同 DevEco/Hvigor 版本的输出路径可能不同。若找不到 HAP，先执行：
 
