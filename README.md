@@ -4,7 +4,7 @@
 
 语言：中文 | [English](./README_en.md)
 
-[![release](https://img.shields.io/badge/release-v1.3.5-1f6feb?style=flat-square)](https://github.com/linhay/harmony-next.skills/releases/tag/v1.3.5)
+[![release](https://img.shields.io/badge/release-v1.3.6-1f6feb?style=flat-square)](https://github.com/linhay/harmony-next.skills/releases/tag/v1.3.6)
 [![readme](https://img.shields.io/badge/readme-English-0f766e?style=flat-square)](./README_en.md)
 ![docs](https://img.shields.io/badge/docs-3,693%20markdown%20files-7c3aed?style=flat-square)
 ![js-ets](https://img.shields.io/badge/JsEtsAPIReference-3,666%20files-b45309?style=flat-square)
@@ -34,6 +34,7 @@
 | 面向 Agent 工作流 | 按 `SKILL.md -> KITS/TASK_MAP -> INDEX` 组织，适合渐进式检索 |
 | 不只 API 手册 | 还包含 IDE、签名、调试、发布、性能、多端与 NDK 实战指引 |
 | 私有接口隔离 | DevEco 模拟器与 IDE 本体私有未公开能力分别单独成章，默认先验证版本和风险门禁 |
+| 非交互自动化策略 | DevEco 模拟器自动化支持 `HARMONY_NEXT_AUTOMATION_POLICY`；策略是执行模式，不是授权门槛 |
 
 ## 内容概览
 
@@ -95,7 +96,8 @@ SKILL.md
 
 - 先读 [`harmony-next/SKILL.md`](./harmony-next/SKILL.md) 的私有接口章节，再读 [`DevEco模拟器私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco模拟器私有接口与AI自动化.md)。
 - 每次执行前重新验证当前 DevEco / Emulator / SDK 版本和命令能力。
-- 真实截图、layout、日志包、安装卸载、端口转发、HVD 创建/删除等动作需要用户确认和脱敏策略。
+- 用户默认拥有完整执行权限；长时间自动化可用 `HARMONY_NEXT_AUTOMATION_POLICY`、`--policy` 或 `.harmony-next-policy.json` 描述执行模式、产物目录和脱敏契约。
+- 真实截图、layout、日志包、安装卸载、端口转发、HVD 创建/删除等动作按非交互流程执行；缺少 target、artifact 目录、脱敏策略或 timeout 时才返回 machine-readable blocked 结果。
 
 ### DevEco Studio IDE 私有接口
 
@@ -105,7 +107,7 @@ SKILL.md
 
 - 先读 [`harmony-next/SKILL.md`](./harmony-next/SKILL.md) 的 IDE 私有接口章节，再读 [`DevEco Studio IDE私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco%20Studio%20IDE私有接口与AI自动化.md)。
 - 默认只做静态只读分析：插件 XML、jar 类名、字符串、配置路径、离线 `.htrace` / faultlog / stacktrace / `.arkli` / `.preview` 产物。
-- 启动 IDE/GUI/JCEF、本地服务、设备连接、CodeGenie localhost 接口、MCP 配置、外部模型请求、读取用户缓存或聊天历史前必须确认。
+- 启动 IDE/GUI/JCEF、本地服务、设备连接、CodeGenie localhost 接口、MCP 配置、外部模型请求、读取用户缓存或聊天历史时，记录目标、输入、产物目录和脱敏边界。
 
 ### Agent 工程化集成
 
@@ -172,6 +174,7 @@ ln -s "$(pwd)/harmony-next.skills/harmony-next" "$HOME/.agents/skills/harmony-ne
 
 | 版本 | 重点变化 |
 | --- | --- |
+| `v1.3.6` | DevEco 模拟器 playbook 新增非交互自动化策略：用户默认拥有完整权限，`policy` 仅表示执行模式；支持 `readonly/evidence/automation/diagnostic/break-glass`、artifact 目录、脱敏元数据与 machine-readable blocked 输出 |
 | `v1.3.5` | 新增 DevEco Studio IDE 私有未公开能力参考：CodeGenie 本地 RAG/MCP/LanceDB、`devecostudio://`、Previewer、ArkUI Inspector、Profiler、Doctor、UxTestService、插件入口索引与隐私风险门禁；更新 README 与触发词 |
 | `v1.3.4` | 新增 DevEco Studio 模拟器私有未公开自动化参考：免 IDE 启动、`hdc + uitest`、HVD、多实例、风险门禁、超时与脱敏边界；更新 `SKILL.md` 触发词与任务索引 |
 | `v1.2.0` | API 23 相关内容纳入当前更新；重建 `references/INDEX.md` 与 `JsEtsAPIReference/INDEX.md`；移除旧 `capi/headers/*.md` 页面并改为直链真实目标；新增 `reference_compat.py` 与链接回归审计能力；同步中英文 README 与维护说明 |

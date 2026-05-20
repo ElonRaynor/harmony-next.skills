@@ -4,7 +4,7 @@ An offline HarmonyOS NEXT reference skill for coding agents such as Gemini CLI, 
 
 Language: English | [中文](./README.md)
 
-[![release](https://img.shields.io/badge/release-v1.3.5-1f6feb?style=flat-square)](https://github.com/linhay/harmony-next.skills/releases/tag/v1.3.5)
+[![release](https://img.shields.io/badge/release-v1.3.6-1f6feb?style=flat-square)](https://github.com/linhay/harmony-next.skills/releases/tag/v1.3.6)
 [![readme](https://img.shields.io/badge/readme-%E4%B8%AD%E6%96%87-0f766e?style=flat-square)](./README.md)
 ![docs](https://img.shields.io/badge/docs-3,693%20markdown%20files-7c3aed?style=flat-square)
 ![js-ets](https://img.shields.io/badge/JsEtsAPIReference-3,666%20files-b45309?style=flat-square)
@@ -34,6 +34,7 @@ The goal is to turn those questions into local file lookups that are traceable, 
 | Agent-oriented workflow | Organized as `SKILL.md -> KITS/TASK_MAP -> INDEX`, which fits progressive retrieval |
 | More than API docs | Includes IDE setup, signing, debugging, release, performance, multi-device, and NDK guidance |
 | Private-interface isolation | DevEco emulator and IDE private capabilities each live in separate chapters with version checks and risk gates |
+| Non-interactive automation policy | DevEco emulator automation supports `HARMONY_NEXT_AUTOMATION_POLICY`; policy is an execution mode, not an authorization gate |
 
 ## Repository Overview
 
@@ -95,7 +96,8 @@ Usage rules:
 
 - Read the private-interface chapter in [`harmony-next/SKILL.md`](./harmony-next/SKILL.md) first, then open [`DevEco模拟器私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco模拟器私有接口与AI自动化.md).
 - Re-verify the current DevEco / Emulator / SDK version and command capabilities before each run.
-- Real screenshots, layouts, log bundles, installs/uninstalls, port forwarding, and HVD create/delete flows require user confirmation and redaction.
+- Users are assumed to have full execution authority; long-running automation can use `HARMONY_NEXT_AUTOMATION_POLICY`, `--policy`, or `.harmony-next-policy.json` to describe execution mode, artifact directories, and redaction contracts.
+- Real screenshots, layouts, log bundles, installs/uninstalls, port forwarding, and HVD create/delete flows run non-interactively; missing target, artifact directory, redaction policy, or timeout returns a machine-readable blocked result.
 
 ### DevEco Studio IDE Private Interfaces
 
@@ -105,7 +107,7 @@ Usage rules:
 
 - Read the IDE private-interface chapter in [`harmony-next/SKILL.md`](./harmony-next/SKILL.md) first, then open [`DevEco Studio IDE私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco%20Studio%20IDE私有接口与AI自动化.md).
 - Default to static read-only analysis: plugin XML, jar class names, strings, config paths, and offline `.htrace` / faultlog / stacktrace / `.arkli` / `.preview` artifacts.
-- Starting the IDE/GUI/JCEF, local services, device connections, CodeGenie localhost endpoints, MCP config, external model calls, or reading user caches/chat history requires confirmation.
+- Starting the IDE/GUI/JCEF, local services, device connections, CodeGenie localhost endpoints, MCP config, external model calls, or reading user caches/chat history requires target, input, artifact-directory, and redaction-boundary records.
 
 ### Agent Engineering Integration
 
@@ -172,6 +174,7 @@ Entry files:
 
 | Version | Highlights |
 | --- | --- |
+| `v1.3.6` | Added a non-interactive automation policy for the DevEco emulator playbook: users are assumed to have full authority and `policy` only means execution mode; supports `readonly/evidence/automation/diagnostic/break-glass`, artifact directories, redaction metadata, and machine-readable blocked output |
 | `v1.3.5` | Added a private, undocumented DevEco Studio IDE capability reference covering CodeGenie local RAG/MCP/LanceDB, `devecostudio://`, Previewer, ArkUI Inspector, Profiler, Doctor, UxTestService, plugin entry indexes, and privacy risk gates; updated README and trigger terms |
 | `v1.3.4` | Added a private, undocumented DevEco Studio emulator automation reference covering launch without the IDE, `hdc + uitest`, HVD, multi-instance runs, risk gates, timeouts, and redaction boundaries; updated `SKILL.md` trigger terms and task navigation |
 | `v1.2.0` | API 23 content is included; `references/INDEX.md` and `JsEtsAPIReference/INDEX.md` were rebuilt; legacy `capi/headers/*.md` pages were removed and replaced with direct links to real targets; `reference_compat.py` and link-audit tooling were added; both Chinese and English README files were synchronized |

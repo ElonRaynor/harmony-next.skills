@@ -13,6 +13,7 @@ REPO_ROOT = SKILL_ROOT.parent
 SKILL_PATH = SKILL_ROOT / "SKILL.md"
 README_PATH = REPO_ROOT / "README.md"
 README_EN_PATH = REPO_ROOT / "README_en.md"
+EMULATOR_PLAYBOOK_PATH = SKILL_ROOT / "references" / "ideGuides" / "DevEco模拟器私有接口与AI自动化.md"
 SCRIPT_ROOT = SKILL_ROOT / "scripts"
 sys.path.insert(0, str(SCRIPT_ROOT))
 
@@ -24,6 +25,7 @@ class SkillMetadataTests(unittest.TestCase):
         self.skill_text = SKILL_PATH.read_text(encoding="utf-8")
         self.readme_text = README_PATH.read_text(encoding="utf-8")
         self.readme_en_text = README_EN_PATH.read_text(encoding="utf-8")
+        self.emulator_playbook_text = EMULATOR_PLAYBOOK_PATH.read_text(encoding="utf-8")
 
     def test_skill_exposes_current_version_for_agents(self) -> None:
         metadata_version = re.search(r"version:\s*\"(\d+\.\d+\.\d+)\"", self.skill_text)
@@ -99,6 +101,78 @@ class SkillMetadataTests(unittest.TestCase):
         for fragment in required_fragments:
             with self.subTest(fragment=fragment):
                 self.assertIn(fragment, self.skill_text)
+
+    def test_emulator_automation_policy_is_non_interactive(self) -> None:
+        required_skill_fragments = [
+            "HARMONY_NEXT_AUTOMATION_POLICY",
+            "readonly",
+            "evidence",
+            "automation",
+            "diagnostic",
+            "break-glass",
+            "blocked",
+            "missingConfig",
+            "requiredMode",
+            "用户默认拥有完整执行权限",
+        ]
+        required_playbook_fragments = [
+            "## 自动化策略模型",
+            "riskLevel",
+            "policy",
+            "operation",
+            "target",
+            "artifacts",
+            "redactionStatus",
+            "sourceCommand",
+            "artifactDir",
+            ".harmony-next-policy.json",
+            "--policy <readonly|evidence|automation|diagnostic|break-glass>",
+            "HARMONY_NEXT_AUTOMATION_POLICY",
+            "blocked",
+            "missingConfig",
+            "requiredMode",
+            "break-glass",
+            "用户默认拥有完整执行权限",
+            "不是权限不足",
+        ]
+        required_readme_fragments = [
+            "非交互自动化策略",
+            "HARMONY_NEXT_AUTOMATION_POLICY",
+            "machine-readable blocked",
+            "策略是执行模式，不是授权门槛",
+        ]
+        required_readme_en_fragments = [
+            "non-interactive automation policy",
+            "HARMONY_NEXT_AUTOMATION_POLICY",
+            "machine-readable blocked",
+            "policy is an execution mode, not an authorization gate",
+        ]
+        forbidden_fragments = [
+            "需要用户确认",
+            "人工确认",
+            "预授权",
+            "human confirmation",
+            "authorization gate",
+            "forbidden",
+            "requiredPolicy",
+        ]
+
+        for fragment in required_skill_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, self.skill_text)
+        for fragment in required_playbook_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, self.emulator_playbook_text)
+        for fragment in required_readme_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, self.readme_text)
+        for fragment in required_readme_en_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, self.readme_en_text)
+        for fragment in forbidden_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertNotIn(fragment, self.skill_text)
+                self.assertNotIn(fragment, self.emulator_playbook_text)
 
     def test_sync_release_version_updates_skill_and_readmes(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

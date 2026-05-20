@@ -15,7 +15,7 @@
 
 1. 明确用户目标：只读诊断、启动模拟器、操作 UI、安装/卸载应用、采集日志/截图，还是系统级调试。
 2. 先执行只读能力探测，确认当前机器路径、版本、HVD 和 HDC target。
-3. 需要真实 UI 内容、设备文件、端口转发、安装卸载、启动/停止模拟器或写文件时，先请求用户确认并说明会采集什么。
+3. 需要真实 UI 内容、设备文件、端口转发、安装卸载、启动/停止模拟器或写文件时，按自动化策略记录风险、产物目录、脱敏状态和命令摘要；不进入等待输入流程。
 4. 多 target 时必须让用户指定或基于明确上下文选择 `Connected` 的 `127.0.0.1:<port>`；不要默认选第一个。
 5. 命令必须设置超时；禁止无界后台进程或无限日志流。
 
@@ -31,6 +31,67 @@ IMAGE_ROOT="$HOME/Library/Huawei/Sdk"
 ```
 
 已知验证过的环境线索：DevEco Studio 6.0.2，HarmonyOS Emulator 6.0.2.200。其他版本必须重新探测。
+
+## 自动化策略模型
+
+本 playbook 把风险分级和执行模式拆开：
+
+- `riskLevel` 说明命令的敏感度和影响面。
+- `policy` 说明本次 run 的自动化模式、产物目录和脱敏契约，不代表授权。
+- 用户默认拥有完整执行权限；skill 不向用户索要许可，也不把高风险动作改写成等待输入。
+- 长时间自动化必须非交互运行；只有缺少 target、artifact 目录、脱敏策略、timeout、命令参数等客观前置条件时，才返回 machine-readable `blocked` 结果。
+
+策略可来自以下通道，优先级由具体 runner 固定并写入 run 记录：
+
+```bash
+HARMONY_NEXT_AUTOMATION_POLICY=automation
+<runner> --policy <readonly|evidence|automation|diagnostic|break-glass>
+```
+
+也可以使用 repo-local 配置：
+
+```json
+{
+  "policy": "automation",
+  "artifactDir": "docs-linhay/screenshots/20260520/emulator",
+  "redactionPolicy": "harmony-next-default-v1",
+  "targets": ["127.0.0.1:10100"]
+}
+```
+
+配置文件名建议固定为 `.harmony-next-policy.json`。进入 `evidence`、`automation`、`diagnostic` 或 `break-glass` 时，若操作会保存真实 UI、layout、日志、设备文件或录屏，必须提供显式 `artifactDir` 和脱敏策略；不满足时视为运行配置缺失，而不是权限不足。
+
+策略档位：
+
+| policy | 允许范围 |
+| --- | --- |
+| `readonly` | 只允许低风险只读探测、状态摘要、`/dev/null` layout/screenshot 能力探测 |
+| `evidence` | 允许截图、layout、日志片段、`file recv` 保存到显式 `artifactDir`，并要求脱敏元数据 |
+| `automation` | 允许 Emulator 生命周期、应用安装/启动、UI 输入、bounded logs、证据采集 |
+| `diagnostic` | 执行有界 `hitrace`、更宽 `hilog`、诊断包，仍需 timeout、大小上限和脱敏 |
+| `break-glass` | 标记刷写、格式化、清数据、root/daemon、通配删除等系统级动作；用户明确目标后可执行，并必须保留审计摘要 |
+
+每个 gate 结果必须记录：
+
+```json
+{
+  "riskLevel": "evidence",
+  "policy": "readonly",
+  "operation": "uitest.screenCap.recv",
+  "target": "127.0.0.1:10100",
+  "artifacts": [],
+  "redactionStatus": "not_applicable",
+  "sourceCommand": "hdc -t 127.0.0.1:10100 shell uitest screenCap -p /data/local/tmp/ai-screen.png",
+  "decision": "blocked",
+  "requiredMode": "evidence",
+  "missingConfig": ["artifactDir", "redactionPolicy"],
+  "reason": "artifactDir and redactionPolicy are required for real screenshot capture"
+}
+```
+
+允许执行时也要记录同一批字段，`decision` 为 `allowed`，`artifacts` 指向已脱敏或待清理产物。严禁把 token、cookie、设备唯一标识、完整业务 payload 或未脱敏原文写入 gate 结果。
+
+系统级动作不被 skill 禁止，但必须进入 `break-glass` 模式并写清目标、命令、恢复策略和审计摘要：`hdc target mount`、`hdc smode`、`hdc flash`、`hdc erase`、`hdc format`、`hdc sideload`、无边界清数据、刷写、root/daemon 模式、通配删除。`break-glass` 是风险标签，不是授权门槛。
 
 ## 最小只读探测流程
 
@@ -76,20 +137,20 @@ IMAGE_ROOT="$HOME/Library/Huawei/Sdk"
 
 `bm dump`、`aa dump`、`hilog` 输出可能包含应用名、路径或错误文本；报告时只保留必要摘要。
 
-### 需要用户确认
+### 执行模式标注
 
-- 启动或停止 Emulator。
-- 安装、卸载、清数据、启动应用。
-- 创建、复制、删除、清理 HVD。
-- `hdc file send` / `hdc file recv`。
-- 保存真实 layout、截图、录屏、日志包或沙箱内容。
-- 新增或删除 `fport/rport` 端口转发。
-- `hitrace`、`uinput`、大范围 `hilog -x`。
-- 电源、显示、折叠、窗口策略切换。
+- `automation`：启动或停止 Emulator。
+- `automation`：安装、卸载、启动应用。
+- `automation`：创建、复制、删除或清理 HVD，需限定实例名和恢复策略。
+- `evidence`：`hdc file recv`、保存真实 layout、截图、录屏、日志包或沙箱内容，必须写入显式 `artifactDir`。
+- `automation`：`hdc file send` 和新增或删除 `fport/rport` 端口转发，必须限定 target、端口和生命周期。
+- `diagnostic`：有界 `hitrace`、底层 `uinput`、大范围 `hilog -x`。
+- `diagnostic`：电源、显示、折叠、窗口策略切换，必须记录恢复动作。
+- `break-glass`：清数据、刷写、格式化、root/daemon、通配删除等系统级动作。
 
-### 默认禁止
+### 系统级动作
 
-除非用户明确要求系统级调试并接受风险，不执行：
+用户明确目标时可以执行；执行前后必须记录 target、命令摘要、恢复策略、产物目录和脱敏状态：
 
 ```bash
 hdc target mount
@@ -105,7 +166,7 @@ wukong special
 wukong focus
 ```
 
-无法分类的命令按“需要用户确认”处理。
+无法分类的命令标记为 `riskLevel=unknown`，不请求确认；若缺少 target、timeout 或命令参数，返回 `blocked` 并给出 `missingConfig`。
 
 ## 启动模拟器
 
@@ -118,7 +179,7 @@ wukong focus
 - 若缺少占位通道导致启动失败，停止本轮启动尝试，只报告 Emulator 版本、HVD 名称、命令类型和裁剪后的错误摘要，不继续 UI 自动化。
 - 不记录或沉淀 HVD 内部字段、trace pipe 私有协议或未验证 helper 细节。
 
-确认后使用模板：
+使用模板：
 
 ```bash
 cd "/Applications/DevEco-Studio.app/Contents/tools/emulator"
@@ -141,7 +202,7 @@ cd "/Applications/DevEco-Studio.app/Contents/tools/emulator"
   -hdcport 10100
 ```
 
-停止指定 HVD 需要确认：
+停止指定 HVD：
 
 ```bash
 "/Applications/DevEco-Studio.app/Contents/tools/emulator/Emulator" \
@@ -164,11 +225,11 @@ cd "/Applications/DevEco-Studio.app/Contents/tools/emulator"
 
 ## 失败分流
 
-- 没有 HDC target：停止 UI 自动化，报告 Emulator/HVD 探测摘要，建议用户确认是否启动 HVD。
+- 没有 HDC target：停止 UI 自动化，报告 Emulator/HVD 探测摘要；非交互 run 返回 `blocked`，`missingConfig` 为 `target`。
 - 只有 `Offline` target：不执行 shell、uitest 或输入动作；报告 target 状态并建议重启/等待连接。
 - 多个 `Connected` target 且用户未指定：停止，要求用户选择 `127.0.0.1:<port>`。
 - boot completed 超时或不是 `true`：不点击、不输入，只保留 boot 参数和连接摘要。
-- `uitest dumpLayout -p /dev/null -a` 不支持或返回权限错误：不默认改为真实路径采集；先降级到其他只读诊断，真实 layout/screenshot 需确认。
+- `uitest dumpLayout -p /dev/null -a` 不支持或返回权限错误：不默认改为真实路径采集；先降级到其他只读诊断，真实 layout/screenshot 需要 `artifactDir` 和脱敏配置。
 - 脱敏失败：不归档、不回显原文。
 
 ## UI 自动化
@@ -182,7 +243,7 @@ cd "/Applications/DevEco-Studio.app/Contents/tools/emulator"
 "$HDC" -t "$TARGET" shell uitest screenCap -p /dev/null
 ```
 
-真实内容采集需要确认：
+真实内容采集需要显式 `artifactDir` 和脱敏配置：
 
 ```bash
 "$HDC" -t "$TARGET" shell uitest dumpLayout -p /data/local/tmp/ai-layout.json -a
@@ -204,10 +265,10 @@ cd "/Applications/DevEco-Studio.app/Contents/tools/emulator"
 
 规则：
 
-- 坐标来源优先级：可解析的 dumpLayout 节点坐标 -> 用户确认后的截图辅助定位 -> 用户明确给出的坐标 -> 用户确认后的 `uinput` 或桌面坐标兜底。
+- 坐标来源优先级：可解析的 dumpLayout 节点坐标 -> 截图辅助定位 -> 用户明确给出的坐标 -> `uinput` 或桌面坐标兜底。
 - 每步输入后重新探测状态。
 - 用户输入文本必须转义，不能拼接原文 shell。
-- `uinput` 只作为确认后的兜底。
+- `uinput` 作为底层输入兜底，必须记录 `riskLevel=diagnostic`。
 
 ## 应用启动与诊断
 
@@ -262,18 +323,17 @@ param get persist.sys.hilog.loggable.global
 
 禁止无超时运行：不带 `-z` / `-x` 的 `hilog`、`track-jpid`、`hitrace --record`、`wukong exec`、`uitest uiRecord record`、`uitest start-daemon`。
 
-## 确认请求模板
+## 执行记录模板
 
-需要确认时，明确动作、读取范围、是否写文件、是否保存原文、脱敏策略和停止条件：
+高风险或会写入产物的动作必须记录读取范围、写入位置、脱敏策略和停止条件：
 
 ```text
-我需要执行会改变本机/模拟器状态的操作：<启动/停止/安装/采集/端口转发>。
+动作：<启动/停止/安装/采集/端口转发>。
 范围：<HVD/target/bundle/path>。
-会读取：<target 状态/boot 参数/裁剪日志/截图/layout/设备文件>。
-会写入：<无/本地路径/设备路径>。
+读取：<target 状态/boot 参数/裁剪日志/截图/layout/设备文件>。
+写入：<无/本地路径/设备路径>。
 脱敏：<只保留摘要，不保存原文/保存附件前裁剪字段>。
 停止条件：<无 Connected target/boot 超时/命令失败/脱敏失败>。
-是否允许？
 ```
 
 ## 输出与脱敏
