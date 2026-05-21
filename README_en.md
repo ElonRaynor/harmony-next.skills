@@ -47,7 +47,7 @@ The goal is to turn those questions into local file lookups that are traceable, 
 | Global index | Full Markdown path index for the reference corpus | [`references/INDEX.md`](./harmony-next/references/INDEX.md) |
 | Bucketed API index | Focused index for `JsEtsAPIReference/`, covering modules, topics, types, errors, and guides | [`JsEtsAPIReference/INDEX.md`](./harmony-next/references/JsEtsAPIReference/INDEX.md) |
 | Empty Ability minimal project | Copyable HarmonyOS NEXT smoke fixture with defaults `com.example.emptyability` / `EntryAbility` / `5.0.0(12)` | [`references/templates/empty-ability-app`](./harmony-next/references/templates/empty-ability-app/) |
-| Minimal project scaffold guide | Explains copy, `ohpm install`, `hvigorw --mode module`, SDK override validation, HDC launch, `uitest dumpLayout`, and click smoke validation | [`minimal-project-scaffold.md`](./harmony-next/references/quickStart/ets/minimal-project-scaffold.md) |
+| Minimal project scaffold guide | Explains copy, the decoupled route page and `SmokeCounter` component, `ohpm install`, `hvigorw --mode module`, SDK override validation, HDC launch, `uitest dumpLayout`, and click smoke validation | [`minimal-project-scaffold.md`](./harmony-next/references/quickStart/ets/minimal-project-scaffold.md) |
 | DevEco emulator private interfaces | Local validation boundaries for starting Emulator without the IDE, `hdc + uitest`, HVD, logs, and diagnostics | [`DevEco模拟器私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco模拟器私有接口与AI自动化.md) |
 | DevEco IDE private interfaces | Static validation boundaries for CodeGenie, local RAG/MCP, `devecostudio://`, Previewer, ArkUI Inspector, Profiler, Doctor, and UxTestService | [`DevEco Studio IDE私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco%20Studio%20IDE私有接口与AI自动化.md) |
 | Command Line Tools setup | Direct archive download, local archive install, PATH profile setup, and `codelinter -v` validation | [`commandline_tools_manager.py`](./harmony-next/scripts/commandline_tools_manager.py) |
@@ -93,6 +93,7 @@ The core principle is simple: find the path first, then read the content.
 - Performance analysis and release workflows
 - DevEco Studio / HarmonyOS Emulator automation: launching without the IDE, HVD, multi-instance runs, `hdc`, `uitest`, `aa`, `bm`, `hilog`, and `hidumper`
 - Copy `references/templates/empty-ability-app` to generate a minimal Empty Ability fixture; the page exposes `smoke-increment` for `uitest dumpLayout`, screenshots, and log smoke checks
+- The route page and smoke component are decoupled: `pages/Index.ets` only mounts `SmokeCounter()`, while `components/SmokeCounter.ets` owns the smoke UI and state
 - Supports SDK override validation: for example, HarmonyOS 6.0.2 / API 22 builds with `6.0.2(22)`, `DEVECO_SDK_HOME=/Applications/DevEco-Studio.app/Contents/sdk`, and the app `icon`, Ability `icon`, and `startWindowIcon`
 - Interactive smoke uses `uitest uiInput click` on `smoke-increment`, then re-dumps layout and verifies `Harmony Smoke Tapped` / `tapCount=1`
 

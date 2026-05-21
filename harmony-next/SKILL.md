@@ -79,6 +79,7 @@ Use when an agent needs a copyable HarmonyOS NEXT smoke fixture without opening 
 - Scaffold guide: `references/quickStart/ets/minimal-project-scaffold.md`
 - Copyable template: `references/templates/empty-ability-app/`
 - Defaults: bundleName `com.example.emptyability`, module `entry`, ability `EntryAbility`, Compatible SDK `5.0.0(12)`, target SDK `5.0.0(12)`.
+- Route/component split: `pages/Index.ets` is only the `@Entry` route page and mounts `SmokeCounter()`; `components/SmokeCounter.ets` owns the smoke UI state and node IDs.
 - Validation entrypoints: `ohpm install`, `hvigorw --mode module -p module=entry@default assembleHap`, HDC install/start, `uitest dumpLayout`, and `uitest screenCap`.
 - SDK override validation: for a target SDK such as HarmonyOS 6.0.2 / API 22, set the copied fixture's `compatibleSdkVersion` and `targetSdkVersion` to `6.0.2(22)` and set `DEVECO_SDK_HOME` to the SDK root, for example `DEVECO_SDK_HOME=/Applications/DevEco-Studio.app/Contents/sdk`, not `sdk/default`.
 - API 22 schema compatibility depends on app and Ability icons: keep `AppScope/resources/base/media/app_icon.png`, app `icon`, Ability `icon`, and `startWindowIcon` in the template.

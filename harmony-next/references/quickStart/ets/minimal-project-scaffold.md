@@ -32,6 +32,7 @@ empty-ability-app/
     └── src/main/
         ├── module.json5
         ├── ets/entryability/EntryAbility.ets
+        ├── ets/components/SmokeCounter.ets
         ├── ets/pages/Index.ets
         └── resources/base/
             ├── element/color.json
@@ -53,6 +54,8 @@ empty-ability-app/
 | runtimeOS | `HarmonyOS` |
 
 复制后按目标项目修改 `AppScope/app.json5` 中的 `bundleName`，并同步更新 smoke 脚本里的 `BUNDLE`。如果需要签名构建，由目标项目自行生成 `signingConfigs`；模板不携带任何个人证书、p12、profile 或本机绝对路径。应用图标来自 DevEco Studio 官方 `New Project` 模板的 `app_icon.png`，可在目标工程内替换。
+
+页面入口与 smoke 组件解耦：`pages/Index.ets` 只作为 `main_pages.json` 指向的 `@Entry` 路由页，负责挂载 `SmokeCounter()`；`components/SmokeCounter.ets` 承载 smoke 文本、节点 ID、状态和点击逻辑。复制到业务仓库后，可以替换路由页、移动组件或接入自己的导航结构，而不需要改写 Ability 入口。
 
 ## 静态校验
 
@@ -105,7 +108,7 @@ HAP="$(find entry/build -name '*.hap' | head -1)"
 "$HDC" -t "$TARGET" shell uitest screenCap -p /dev/null
 ```
 
-`Index.ets` 暴露稳定文本和节点 ID：
+`SmokeCounter.ets` 暴露稳定文本和节点 ID：
 
 - `Harmony Smoke Ready`
 - `smoke-title`

@@ -47,7 +47,7 @@
 | 全库索引 | 收录整个参考库的 Markdown 路径，用于先命中路径再读正文 | [`references/INDEX.md`](./harmony-next/references/INDEX.md) |
 | API 分桶索引 | 聚焦 `JsEtsAPIReference/`，覆盖 modules、topics、types、errors、guides | [`JsEtsAPIReference/INDEX.md`](./harmony-next/references/JsEtsAPIReference/INDEX.md) |
 | Empty Ability 最小工程 | 可复制到任意仓库的 HarmonyOS NEXT smoke fixture，默认 `com.example.emptyability` / `EntryAbility` / `5.0.0(12)` | [`references/templates/empty-ability-app`](./harmony-next/references/templates/empty-ability-app/) |
-| 最小工程脚手架指南 | 说明如何复制模板、运行 `ohpm install`、`hvigorw --mode module`、SDK 版本适配验证、安装启动、`uitest dumpLayout` 和点击 smoke | [`minimal-project-scaffold.md`](./harmony-next/references/quickStart/ets/minimal-project-scaffold.md) |
+| 最小工程脚手架指南 | 说明如何复制模板、路由页与 `SmokeCounter` 组件解耦、运行 `ohpm install`、`hvigorw --mode module`、SDK 版本适配验证、安装启动、`uitest dumpLayout` 和点击 smoke | [`minimal-project-scaffold.md`](./harmony-next/references/quickStart/ets/minimal-project-scaffold.md) |
 | DevEco 模拟器私有接口 | 免 IDE 启动 Emulator、`hdc + uitest`、HVD、日志与诊断的本地验证边界 | [`DevEco模拟器私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco模拟器私有接口与AI自动化.md) |
 | DevEco IDE 私有接口 | CodeGenie、本地 RAG/MCP、`devecostudio://`、Previewer、ArkUI Inspector、Profiler、Doctor、UxTestService 的静态验证边界 | [`DevEco Studio IDE私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco%20Studio%20IDE私有接口与AI自动化.md) |
 | 命令行工具配置 | Command Line Tools 直链下载、本地压缩包安装、PATH 配置和 `codelinter -v` 校验 | [`commandline_tools_manager.py`](./harmony-next/scripts/commandline_tools_manager.py) |
@@ -93,6 +93,7 @@ SKILL.md
 - 性能分析与发布流程
 - DevEco Studio / HarmonyOS Emulator 免 IDE 启动、HVD、多实例、`hdc`、`uitest`、`aa`、`bm`、`hilog`、`hidumper` 自动化诊断
 - 复制 `references/templates/empty-ability-app` 生成最小 Empty Ability 测试工程；页面含 `smoke-increment` 节点，适合 `uitest dumpLayout`、截图和日志 smoke
+- 页面入口与 smoke 组件解耦：`pages/Index.ets` 只挂载 `SmokeCounter()`，测试 UI 与状态逻辑放在 `components/SmokeCounter.ets`
 - 支持 SDK 版本适配验证：例如 HarmonyOS 6.0.2 / API 22 使用 `6.0.2(22)` 构建，配合 `DEVECO_SDK_HOME=/Applications/DevEco-Studio.app/Contents/sdk`，并保留 app `icon`、Ability `icon` 与 `startWindowIcon`
 - 交互 smoke 使用 `uitest uiInput click` 点击 `smoke-increment`，重新 dump 后断言 `Harmony Smoke Tapped` / `tapCount=1`
 

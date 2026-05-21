@@ -219,6 +219,7 @@ class SkillMetadataTests(unittest.TestCase):
             "entry/hvigorfile.ts",
             "entry/src/main/module.json5",
             "entry/src/main/ets/entryability/EntryAbility.ets",
+            "entry/src/main/ets/components/SmokeCounter.ets",
             "entry/src/main/ets/pages/Index.ets",
             "entry/src/main/resources/base/element/color.json",
             "entry/src/main/resources/base/element/float.json",
@@ -239,6 +240,7 @@ class SkillMetadataTests(unittest.TestCase):
             "uitest uiInput click",
             "Harmony Smoke Tapped",
             "smoke-increment",
+            "SmokeCounter",
         ]
 
         for relative_path in required_paths:
@@ -267,6 +269,19 @@ class SkillMetadataTests(unittest.TestCase):
         self.assertEqual(build_profile["app"]["products"][0]["runtimeOS"], "HarmonyOS")
         self.assertEqual(build_profile["app"]["signingConfigs"], [])
 
+        index_text = (EMPTY_ABILITY_TEMPLATE_ROOT / "entry" / "src" / "main" / "ets" / "pages" / "Index.ets").read_text(
+            encoding="utf-8"
+        )
+        smoke_counter_text = (
+            EMPTY_ABILITY_TEMPLATE_ROOT / "entry" / "src" / "main" / "ets" / "components" / "SmokeCounter.ets"
+        ).read_text(encoding="utf-8")
+        self.assertIn("import { SmokeCounter } from '../components/SmokeCounter';", index_text)
+        self.assertIn("SmokeCounter()", index_text)
+        self.assertNotIn("@State", index_text)
+        self.assertIn("export struct SmokeCounter", smoke_counter_text)
+        self.assertIn("@State message: string = 'Harmony Smoke Ready';", smoke_counter_text)
+        self.assertIn(".id('smoke-increment')", smoke_counter_text)
+
         for path in EMPTY_ABILITY_TEMPLATE_ROOT.rglob("*"):
             if path.is_file():
                 if path.suffix == ".png":
@@ -285,6 +300,11 @@ class SkillMetadataTests(unittest.TestCase):
                 self.assertIn(fragment, self.readme_text)
                 self.assertIn(fragment, self.readme_en_text)
                 self.assertIn(fragment, self.skill_text)
+
+        self.assertIn("页面入口与 smoke 组件解耦", self.minimal_scaffold_text)
+        self.assertIn("页面入口与 smoke 组件解耦", self.readme_text)
+        self.assertIn("The route page and smoke component are decoupled", self.readme_en_text)
+        self.assertIn("Route/component split", self.skill_text)
 
     def test_sync_release_version_updates_skill_and_readmes(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

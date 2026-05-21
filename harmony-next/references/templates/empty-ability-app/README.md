@@ -31,6 +31,12 @@
 4. 如需替换应用图标，覆盖 `AppScope/resources/base/media/app_icon.png` 即可。
 5. `entry/src/main/module.json5` 的 Ability `icon` 和 `startWindowIcon` 默认复用同一资源。
 
+结构说明：
+
+- `entry/src/main/ets/pages/Index.ets` 只保留 `@Entry` 页面入口，并挂载 `SmokeCounter()`。
+- `entry/src/main/ets/components/SmokeCounter.ets` 承载 smoke UI、状态和点击逻辑。
+- 页面入口与 smoke 组件解耦后，目标项目可以替换路由页或复用组件，不需要把测试状态逻辑写死在 `entry` 页面里。
+
 基本校验：
 
 ```bash
