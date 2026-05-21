@@ -108,6 +108,7 @@ SKILL.md
 - 用户默认拥有完整执行权限；长时间自动化可用 `HARMONY_NEXT_AUTOMATION_POLICY`、`--policy` 或 `.harmony-next-policy.json` 描述执行模式、产物目录和脱敏契约。
 - 真实截图、layout、日志包、安装卸载、端口转发、HVD 创建/删除等动作按非交互流程执行；缺少 target、artifact 目录、脱敏策略或 timeout 时才返回 machine-readable blocked 结果。
 - 本仓库提供 `python3 harmony-next/scripts/hvd_manager.py`：支持 `doctor` 环境探测、`list`、`create --from <source> --name <new>`、`delete --name <name> --confirm-name <name>`；可用 `--root` / `HARMONY_HVD_ROOT`、`--emulator` / `HARMONY_EMULATOR`、`--sdk-root` / `DEVECO_SDK_HOME` 适配不同机器；`download-image` 当前只返回 blocked，因为镜像下载仅确认到 IDE SDK Manager UI 入口。
+- 模拟器抓包与代理诊断：Charles、mitmproxy、Proxyman 等抓包工具都需要确认模拟器 NAT、宿主机可达地址和应用级代理。常见调试入口是让目标应用显式走 `10.0.2.2:9090`，例如 `setAppHttpProxy` 配合 `usingProxy: true`；Mac 侧中转脚本不能被描述为通用透明抓包方案。
 
 ### DevEco Studio IDE 私有接口
 

@@ -108,6 +108,7 @@ Usage rules:
 - Users are assumed to have full execution authority; long-running automation can use `HARMONY_NEXT_AUTOMATION_POLICY`, `--policy`, or `.harmony-next-policy.json` to describe execution mode, artifact directories, and redaction contracts.
 - Real screenshots, layouts, log bundles, installs/uninstalls, port forwarding, and HVD create/delete flows run non-interactively; missing target, artifact directory, redaction policy, or timeout returns a machine-readable blocked result.
 - This repo provides `python3 harmony-next/scripts/hvd_manager.py`: `doctor` environment probing, `list`, `create --from <source> --name <new>`, and `delete --name <name> --confirm-name <name>` are supported; use `--root` / `HARMONY_HVD_ROOT`, `--emulator` / `HARMONY_EMULATOR`, and `--sdk-root` / `DEVECO_SDK_HOME` for machine-specific layouts; `download-image` currently returns blocked because image downloads have only been verified through the IDE SDK Manager UI.
+- For emulator traffic capture and proxy diagnostics, HTTP proxy capture tools such as Charles, mitmproxy, and Proxyman require checking the emulator NAT, a host address reachable from the emulator, and app-level proxy settings. The usual debugging path is to make the target app explicitly use `10.0.2.2:9090`, for example `setAppHttpProxy` plus `usingProxy: true`; a macOS forwarding script should not be documented as a general transparent interception solution.
 
 ### DevEco Studio IDE Private Interfaces
 

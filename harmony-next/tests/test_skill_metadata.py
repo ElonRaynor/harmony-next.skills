@@ -203,6 +203,55 @@ class SkillMetadataTests(unittest.TestCase):
             with self.subTest(fragment=fragment):
                 self.assertIn(fragment, self.emulator_playbook_text)
 
+    def test_emulator_proxy_capture_guidance_is_external_user_facing(self) -> None:
+        required_skill_fragments = [
+            "simulator traffic capture",
+            "HTTP proxy tools",
+            "NetworkKit proxy routing",
+            "transparent interception",
+        ]
+        required_playbook_fragments = [
+            "## 模拟器抓包与代理诊断",
+            "面向使用者",
+            "10.0.2.15",
+            "10.0.2.2",
+            "显式 HTTP 代理",
+            "抓包工具",
+            "setAppHttpProxy",
+            "usingProxy: true",
+            "Mac 侧中转脚本",
+            "不能透明接管全部流量",
+            "VpnExtension",
+            "调试目标应用",
+        ]
+        required_readme_fragments = [
+            "模拟器抓包与代理诊断",
+            "抓包工具",
+            "10.0.2.2:9090",
+            "应用级代理",
+            "透明抓包",
+        ]
+        required_readme_en_fragments = [
+            "emulator traffic capture and proxy diagnostics",
+            "HTTP proxy capture tools",
+            "10.0.2.2:9090",
+            "app-level proxy",
+            "transparent interception",
+        ]
+
+        for fragment in required_skill_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, self.skill_text)
+        for fragment in required_playbook_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, self.emulator_playbook_text)
+        for fragment in required_readme_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, self.readme_text)
+        for fragment in required_readme_en_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, self.readme_en_text)
+
     def test_empty_ability_template_is_copyable_for_smoke_tests(self) -> None:
         required_paths = [
             "README.md",

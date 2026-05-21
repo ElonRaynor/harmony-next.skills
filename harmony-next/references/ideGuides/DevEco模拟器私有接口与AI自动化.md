@@ -318,6 +318,63 @@ python3 harmony-next/scripts/hvd_manager.py download-image --device-type phone -
 "$HDC" -t "$TARGET" shell hilog -z 100
 ```
 
+## 模拟器抓包与代理诊断
+
+本节面向使用者处理 HarmonyOS Emulator 流量无法被抓包工具捕获的问题，适用于 Charles、mitmproxy、Proxyman 或其他显式 HTTP 代理工具。先区分三种能力：应用级代理、系统/全局代理、透明接管流量。不要把其中一种能力的结论外推到另一种。
+
+### 已验证的网络形态
+
+常见 DevEco 模拟器网络是 NAT：
+
+- 模拟器设备 IP 可能是 `10.0.2.15`。
+- 默认网关可能是 `10.0.2.2`。
+- Mac 上的 `127.0.0.1:<port>` 只代表宿主机本机回环地址；模拟器内访问 `127.0.0.1` 时指向模拟器自身，不会自动到达宿主机代理。
+- 抓包工具的显式 HTTP 代理端口通常要以宿主机可达地址暴露，例如 `10.0.2.2:9090` 或宿主机局域网 IP 对应端口。具体端口以所使用工具的监听配置为准。
+
+只读诊断建议：
+
+```bash
+hdc list targets -v
+hdc -t <target> shell ifconfig
+hdc -t <target> shell netstat -rn
+hdc -t <target> shell netstat -ant
+```
+
+如果使用的抓包工具提供 CLI，可以额外读取它的代理监听地址；例如 Proxyman 可用 `proxyman-cli proxy-host`。没有 CLI 时，从工具 UI 中确认 HTTP/HTTPS 代理端口和是否允许外部设备连接。
+
+若打开测试页面后，设备侧 `netstat` 显示从模拟器 IP 直接连接目标站点的 `:80` 或 `:443`，且没有连接代理端口，则说明调试目标应用或系统组件没有走代理。
+
+### 可稳定使用的方案
+
+应用级代理是最稳定的调试入口。对 `@kit.NetworkKit` 的 HTTP 请求，调试目标应用应显式设置应用代理，并在请求参数中启用代理：
+
+```ts
+import { connection, http } from '@kit.NetworkKit';
+
+connection.setAppHttpProxy({
+  host: '10.0.2.2',
+  port: 9090,
+  exclusionList: []
+} as connection.HttpProxy);
+
+let request = http.createHttp();
+request.request(url, {
+  usingProxy: true
+});
+```
+
+WebSocket、RCP、下载组件、Socket/TLSSocket 等网络栈各有自己的代理配置项；不要假设设置 HTTP 请求后能覆盖所有网络调用。HTTPS 明文抓包还需要让调试目标应用信任抓包工具 CA；如果启用了 certificate pinning，需要在调试构建中关闭或替换对应 pin。
+
+### 不能透明接管全部流量的方案
+
+Mac 侧中转脚本可以把 `10.0.2.2:<local-port>` 转发到某个抓包工具的代理端口，但前提是调试目标应用主动连接这个端口。它不能透明接管全部流量，也不能让已经直连目标服务器的连接自动进入抓包工具。
+
+直接把原始 TCP 流量转发到显式 HTTP 代理端口通常也不可行：HTTP 代理端口期望收到 HTTP 请求或 `CONNECT host:443`，而普通 HTTPS 直连发送的是 TLS 握手，协议不匹配。HTTP `:80` 的透明重定向也需要恢复原始目标地址和代理支持，不能作为通用能力写入自动化契约。
+
+真正站到全部流量路径上的方案是设备侧 VPN/TUN。HarmonyOS 提供 `VpnExtension` 能力，可创建虚拟网卡、配置 routes、DNS 和 `trustedApplications` / `blockedApplications`。这需要实现一个调试 VPN Extension，在设备侧读取 TUN 包并转发，不是单独的 Mac 脚本可以完成的能力。
+
+系统或全局代理属于受限能力：企业设备管理的全局代理需要设备管理员身份和 `ohos.permission.ENTERPRISE_MANAGE_NETWORK`；PAC 设置需要 `ohos.permission.SET_PAC_URL`。普通三方调试应用不应把这些能力当成默认可用路径。
+
 ## 参数白名单
 
 默认健康检查只读取这些低风险参数：
