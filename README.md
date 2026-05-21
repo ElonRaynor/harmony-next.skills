@@ -50,6 +50,7 @@
 | 最小工程脚手架指南 | 说明如何复制模板、运行 `ohpm install`、`hvigorw --mode module`、SDK 版本适配验证、安装启动、`uitest dumpLayout` 和点击 smoke | [`minimal-project-scaffold.md`](./harmony-next/references/quickStart/ets/minimal-project-scaffold.md) |
 | DevEco 模拟器私有接口 | 免 IDE 启动 Emulator、`hdc + uitest`、HVD、日志与诊断的本地验证边界 | [`DevEco模拟器私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco模拟器私有接口与AI自动化.md) |
 | DevEco IDE 私有接口 | CodeGenie、本地 RAG/MCP、`devecostudio://`、Previewer、ArkUI Inspector、Profiler、Doctor、UxTestService 的静态验证边界 | [`DevEco Studio IDE私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco%20Studio%20IDE私有接口与AI自动化.md) |
+| 命令行工具配置 | Command Line Tools 直链下载、本地压缩包安装、PATH 配置和 `codelinter -v` 校验 | [`commandline_tools_manager.py`](./harmony-next/scripts/commandline_tools_manager.py) |
 | 参考正文 | 共 `3,693` 份 Markdown，其中 `3,666` 份在 `JsEtsAPIReference/` | [`harmony-next/references/`](./harmony-next/references/) |
 
 ## 推荐检索路径
@@ -88,6 +89,7 @@ SKILL.md
 
 - 签名、模拟器、真机、断点调试
 - 独立命令行工具链与 CI/CD 集成
+- Command Line Tools 可用 `python3 harmony-next/scripts/commandline_tools_manager.py install --archive <zip> --dest ~/.harmony/command-line-tools --profile auto` 解压并写入 shell profile；如需下载，传下载中心复制出的压缩包直链给 `bootstrap --url <archive-url>`，并建议附带 `--sha256`
 - 性能分析与发布流程
 - DevEco Studio / HarmonyOS Emulator 免 IDE 启动、HVD、多实例、`hdc`、`uitest`、`aa`、`bm`、`hilog`、`hidumper` 自动化诊断
 - 复制 `references/templates/empty-ability-app` 生成最小 Empty Ability 测试工程；页面含 `smoke-increment` 节点，适合 `uitest dumpLayout`、截图和日志 smoke
@@ -104,6 +106,7 @@ SKILL.md
 - 每次执行前重新验证当前 DevEco / Emulator / SDK 版本和命令能力。
 - 用户默认拥有完整执行权限；长时间自动化可用 `HARMONY_NEXT_AUTOMATION_POLICY`、`--policy` 或 `.harmony-next-policy.json` 描述执行模式、产物目录和脱敏契约。
 - 真实截图、layout、日志包、安装卸载、端口转发、HVD 创建/删除等动作按非交互流程执行；缺少 target、artifact 目录、脱敏策略或 timeout 时才返回 machine-readable blocked 结果。
+- 本仓库提供 `python3 harmony-next/scripts/hvd_manager.py`：支持 `doctor` 环境探测、`list`、`create --from <source> --name <new>`、`delete --name <name> --confirm-name <name>`；可用 `--root` / `HARMONY_HVD_ROOT`、`--emulator` / `HARMONY_EMULATOR`、`--sdk-root` / `DEVECO_SDK_HOME` 适配不同机器；`download-image` 当前只返回 blocked，因为镜像下载仅确认到 IDE SDK Manager UI 入口。
 
 ### DevEco Studio IDE 私有接口
 

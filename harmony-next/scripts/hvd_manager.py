@@ -1,0 +1,599 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import platform
+import re
+import shutil
+import subprocess
+import sys
+import uuid
+from dataclasses import asdict, dataclass
+from pathlib import Path
+
+
+DEFAULT_HVD_ROOT = Path.home() / ".Huawei" / "Emulator" / "deployed"
+HVD_ROOT_ENV_KEYS = ["HARMONY_HVD_ROOT", "DEVECO_HVD_ROOT", "HVD_ROOT"]
+EMULATOR_ENV_KEYS = ["HARMONY_EMULATOR", "DEVECO_EMULATOR", "EMULATOR"]
+SDK_ROOT_ENV_KEYS = ["DEVECO_SDK_HOME", "HOS_SDK_HOME", "HARMONY_SDK_HOME"]
+NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}$")
+
+
+class HvdManagerError(RuntimeError):
+    pass
+
+
+@dataclass(frozen=True)
+class PathProbe:
+    path: Path | None
+    source: str
+    exists: bool
+    executable: bool = False
+
+    def to_json(self) -> dict[str, object]:
+        return {
+            "path": str(self.path) if self.path else None,
+            "source": self.source,
+            "exists": self.exists,
+            "executable": self.executable,
+        }
+
+
+@dataclass(frozen=True)
+class HvdInfo:
+    name: str
+    path: Path
+    root_ini: Path
+    device_type: str | None = None
+    api_version: str | None = None
+    uuid: str | None = None
+    hdc_port: str | None = None
+    exists: bool = True
+
+    def to_json(self) -> dict[str, object]:
+        data = asdict(self)
+        data["path"] = str(self.path)
+        data["root_ini"] = str(self.root_ini)
+        data.pop("uuid", None)
+        return data
+
+
+def first_env_path(keys: list[str]) -> tuple[Path | None, str | None]:
+    for key in keys:
+        value = os.environ.get(key)
+        if value:
+            return Path(value).expanduser(), key
+    return None, None
+
+
+def default_hvd_root() -> Path:
+    env_path, _ = first_env_path(HVD_ROOT_ENV_KEYS)
+    return env_path or DEFAULT_HVD_ROOT
+
+
+def candidate_hvd_roots() -> list[tuple[Path, str]]:
+    env_path, env_key = first_env_path(HVD_ROOT_ENV_KEYS)
+    candidates: list[tuple[Path, str]] = []
+    if env_path and env_key:
+        candidates.append((env_path, f"env:{env_key}"))
+    candidates.append((Path.home() / ".Huawei" / "Emulator" / "deployed", "default:user-home"))
+    return dedupe_candidates(candidates)
+
+
+def candidate_emulators() -> list[tuple[Path, str]]:
+    env_path, env_key = first_env_path(EMULATOR_ENV_KEYS)
+    candidates: list[tuple[Path, str]] = []
+    if env_path and env_key:
+        candidates.append((env_path, f"env:{env_key}"))
+
+    for name in ["Emulator", "emulator", "Emulator.exe", "emulator.exe"]:
+        resolved = shutil.which(name)
+        if resolved:
+            candidates.append((Path(resolved), f"path:{name}"))
+
+    system = platform.system()
+    if system == "Darwin":
+        candidates.extend(
+            [
+                (Path("/Applications/DevEco-Studio.app/Contents/tools/emulator/Emulator"), "macos:default-app"),
+                (Path("/Applications/DevEco-Studio.app/Contents/tools/emulator/emulator"), "macos:default-app"),
+            ]
+        )
+    elif system == "Windows":
+        for root_env in ["ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA"]:
+            base = os.environ.get(root_env)
+            if base:
+                candidates.extend(
+                    [
+                        (Path(base) / "Huawei" / "DevEco Studio" / "tools" / "emulator" / "Emulator.exe", f"windows:{root_env}"),
+                        (Path(base) / "DevEco-Studio" / "tools" / "emulator" / "Emulator.exe", f"windows:{root_env}"),
+                    ]
+                )
+    else:
+        candidates.extend(
+            [
+                (Path("/opt/DevEco-Studio/tools/emulator/Emulator"), "linux:/opt"),
+                (Path("/opt/deveco-studio/tools/emulator/Emulator"), "linux:/opt"),
+            ]
+        )
+    return dedupe_candidates(candidates)
+
+
+def candidate_sdk_roots() -> list[tuple[Path, str]]:
+    env_path, env_key = first_env_path(SDK_ROOT_ENV_KEYS)
+    candidates: list[tuple[Path, str]] = []
+    if env_path and env_key:
+        candidates.append((env_path, f"env:{env_key}"))
+
+    system = platform.system()
+    if system == "Darwin":
+        candidates.append((Path("/Applications/DevEco-Studio.app/Contents/sdk"), "macos:default-app"))
+    elif system == "Windows":
+        for root_env in ["ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA"]:
+            base = os.environ.get(root_env)
+            if base:
+                candidates.extend(
+                    [
+                        (Path(base) / "Huawei" / "DevEco Studio" / "sdk", f"windows:{root_env}"),
+                        (Path(base) / "DevEco-Studio" / "sdk", f"windows:{root_env}"),
+                    ]
+                )
+    else:
+        candidates.extend(
+            [
+                (Path("/opt/DevEco-Studio/sdk"), "linux:/opt"),
+                (Path("/opt/deveco-studio/sdk"), "linux:/opt"),
+            ]
+        )
+    return dedupe_candidates(candidates)
+
+
+def dedupe_candidates(candidates: list[tuple[Path, str]]) -> list[tuple[Path, str]]:
+    seen: set[str] = set()
+    deduped: list[tuple[Path, str]] = []
+    for path, source in candidates:
+        key = str(path.expanduser())
+        if key not in seen:
+            seen.add(key)
+            deduped.append((path, source))
+    return deduped
+
+
+def probe_first_existing(candidates: list[tuple[Path, str]], executable: bool = False) -> PathProbe:
+    fallback_path: Path | None = None
+    fallback_source = "not-found"
+    for path, source in candidates:
+        expanded = path.expanduser()
+        if fallback_path is None:
+            fallback_path = expanded
+            fallback_source = source
+        if expanded.exists():
+            return PathProbe(
+                path=expanded.resolve(),
+                source=source,
+                exists=True,
+                executable=os.access(expanded, os.X_OK) if executable else False,
+            )
+    return PathProbe(path=fallback_path, source=fallback_source, exists=False, executable=False)
+
+
+def run_version_command(executable: Path) -> dict[str, object]:
+    try:
+        result = subprocess.run([str(executable), "-version"], capture_output=True, text=True, check=False, timeout=10)
+    except OSError as error:
+        return {"ok": False, "error": str(error)}
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": "version command timed out"}
+    output = (result.stdout or result.stderr).strip()
+    return {"ok": result.returncode == 0, "exitCode": result.returncode, "output": output[:2000]}
+
+
+def run_doctor(root: Path | None = None, emulator: Path | None = None, sdk_root: Path | None = None) -> dict[str, object]:
+    root_candidates = [(root, "arg:root")] if root else candidate_hvd_roots()
+    emulator_candidates = [(emulator, "arg:emulator")] if emulator else candidate_emulators()
+    sdk_candidates = [(sdk_root, "arg:sdk-root")] if sdk_root else candidate_sdk_roots()
+
+    root_probe = probe_first_existing(root_candidates)
+    emulator_probe = probe_first_existing(emulator_candidates, executable=True)
+    sdk_probe = probe_first_existing(sdk_candidates)
+
+    issues: list[str] = []
+    recommendations: list[str] = []
+    hvds: list[HvdInfo] = []
+
+    if root_probe.path and root_probe.exists and root_probe.path.is_dir():
+        try:
+            hvds = list_hvds(root_probe.path)
+        except HvdManagerError as error:
+            issues.append(str(error))
+    else:
+        issues.append("HVD root was not found")
+        recommendations.append("Create an HVD in DevEco Studio first, or pass --root / set HARMONY_HVD_ROOT.")
+
+    if not emulator_probe.exists:
+        issues.append("Emulator executable was not found")
+        recommendations.append("Pass --emulator or set HARMONY_EMULATOR to DevEco Studio tools/emulator/Emulator.")
+    elif not emulator_probe.executable:
+        issues.append(f"Emulator is not executable: {emulator_probe.path}")
+
+    if not sdk_probe.exists:
+        recommendations.append("Pass --sdk-root or set DEVECO_SDK_HOME when launch workflows need SDK image roots.")
+
+    payload: dict[str, object] = {
+        "platform": {
+            "system": platform.system(),
+            "machine": platform.machine(),
+            "python": platform.python_version(),
+        },
+        "hvdRoot": root_probe.to_json(),
+        "emulator": emulator_probe.to_json(),
+        "sdkRoot": sdk_probe.to_json(),
+        "hvdCount": len(hvds),
+        "hvds": [hvd.to_json() for hvd in hvds],
+        "issues": issues,
+        "recommendations": recommendations,
+    }
+    if emulator_probe.path and emulator_probe.exists and emulator_probe.executable:
+        payload["emulatorVersion"] = run_version_command(emulator_probe.path)
+    return payload
+
+
+def validate_name(name: str) -> None:
+    if not NAME_PATTERN.fullmatch(name):
+        raise HvdManagerError(
+            "HVD name must be 1-64 chars and contain only letters, numbers, spaces, dots, underscores, or hyphens"
+        )
+    if "/" in name or "\\" in name or name in {".", ".."}:
+        raise HvdManagerError("HVD name must not contain path separators")
+
+
+def normalize_root(root: Path) -> Path:
+    return root.expanduser().resolve()
+
+
+def ensure_root(root: Path) -> Path:
+    root = normalize_root(root)
+    if not root.exists():
+        raise HvdManagerError(f"HVD root does not exist: {root}")
+    if not root.is_dir():
+        raise HvdManagerError(f"HVD root is not a directory: {root}")
+    return root
+
+
+def read_ini(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    if not path.exists():
+        return values
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or stripped.startswith(";") or stripped.startswith("["):
+            continue
+        key, separator, value = stripped.partition("=")
+        if separator:
+            values[key.strip()] = value.strip()
+    return values
+
+
+def read_sectionless_ini(path: Path) -> dict[str, str]:
+    return read_ini(path)
+
+
+def write_ini(path: Path, values: dict[str, str], key_order: list[str] | None = None) -> None:
+    ordered_keys: list[str] = []
+    for key in key_order or []:
+        if key in values and key not in ordered_keys:
+            ordered_keys.append(key)
+    ordered_keys.extend(key for key in values if key not in ordered_keys)
+    text = "".join(f"{key}={values[key]}\n" for key in ordered_keys)
+    path.write_text(text, encoding="utf-8")
+
+
+def update_key_value_file(path: Path, updates: dict[str, str]) -> None:
+    if not path.exists():
+        return
+    seen: set[str] = set()
+    output: list[str] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        key, separator, _ = stripped.partition("=")
+        if separator and key in updates:
+            output.append(f"{key}={updates[key]}")
+            seen.add(key)
+        else:
+            output.append(line)
+    for key, value in updates.items():
+        if key not in seen:
+            output.append(f"{key}={value}")
+    path.write_text("\n".join(output) + "\n", encoding="utf-8")
+
+
+def list_hvds(root: Path = DEFAULT_HVD_ROOT) -> list[HvdInfo]:
+    root = ensure_root(root)
+    hvds: list[HvdInfo] = []
+    for root_ini in sorted(root.glob("*.ini")):
+        root_values = read_ini(root_ini)
+        name = root_ini.stem
+        hvd_path = Path(root_values.get("path", root / name)).expanduser()
+        if not hvd_path.is_absolute():
+            hvd_path = root / hvd_path
+        config = read_ini(hvd_path / "config.ini")
+        hvds.append(
+            HvdInfo(
+                name=config.get("name", name),
+                path=hvd_path,
+                root_ini=root_ini,
+                device_type=config.get("deviceType"),
+                api_version=config.get("os.apiVersion"),
+                uuid=config.get("uuid"),
+                hdc_port=config.get("hw.hdc.port"),
+                exists=hvd_path.exists(),
+            )
+        )
+    return hvds
+
+
+def find_hvd(root: Path, name: str) -> HvdInfo:
+    validate_name(name)
+    for hvd in list_hvds(root):
+        if hvd.name == name or hvd.root_ini.stem == name:
+            return hvd
+    raise HvdManagerError(f"HVD not found: {name}")
+
+
+def copy_source_tree(source: Path, destination: Path, include_logs: bool) -> None:
+    ignore = None
+    if not include_logs:
+        ignore = shutil.ignore_patterns("Log", "*.log")
+    shutil.copytree(source, destination, ignore=ignore)
+
+
+def update_lists_json(root: Path, source_name: str, new_name: str, new_path: Path, new_uuid: str) -> None:
+    lists_path = root / "lists.json"
+    if not lists_path.exists():
+        return
+    try:
+        data = json.loads(lists_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return
+    if not isinstance(data, list):
+        return
+
+    template = None
+    for item in data:
+        if isinstance(item, dict) and item.get("name") == source_name:
+            template = dict(item)
+            break
+    if template is None:
+        template = {"name": source_name}
+
+    template["name"] = new_name
+    if "productModel" in template:
+        template["productModel"] = new_name
+    if "uuid" in template:
+        template["uuid"] = new_uuid
+    if "instancePath" in template:
+        template["instancePath"] = str(new_path)
+
+    data = [item for item in data if not (isinstance(item, dict) and item.get("name") == new_name)]
+    data.append(template)
+    lists_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def remove_from_lists_json(root: Path, name: str) -> None:
+    lists_path = root / "lists.json"
+    if not lists_path.exists():
+        return
+    try:
+        data = json.loads(lists_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return
+    if not isinstance(data, list):
+        return
+    data = [item for item in data if not (isinstance(item, dict) and item.get("name") == name)]
+    lists_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def create_hvd(
+    root: Path = DEFAULT_HVD_ROOT,
+    source_name: str | None = None,
+    new_name: str | None = None,
+    hdc_port: int | None = None,
+    include_logs: bool = False,
+) -> HvdInfo:
+    root = ensure_root(root)
+    if not source_name or not new_name:
+        raise HvdManagerError("Both source_name and new_name are required")
+    validate_name(source_name)
+    validate_name(new_name)
+    if hdc_port is not None and not 10000 <= hdc_port <= 16555:
+        raise HvdManagerError("hdc_port must be in range 10000..16555")
+
+    source = find_hvd(root, source_name)
+    destination = root / new_name
+    destination_ini = root / f"{new_name}.ini"
+    if destination.exists() or destination_ini.exists():
+        raise HvdManagerError(f"HVD already exists: {new_name}")
+    if not source.path.exists():
+        raise HvdManagerError(f"Source HVD directory does not exist: {source.path}")
+
+    copy_source_tree(source.path, destination, include_logs=include_logs)
+    new_uuid = str(uuid.uuid4())
+
+    root_values = {"hvd.ini.encoding": "UTF-8", "path": str(destination)}
+    write_ini(destination_ini, root_values, ["hvd.ini.encoding", "path"])
+
+    config_path = destination / "config.ini"
+    config = read_ini(config_path)
+    config.update(
+        {
+            "name": new_name,
+            "productModel": new_name,
+            "uuid": new_uuid,
+            "instancePath": str(destination),
+            "hw.hdc.port": str(hdc_port) if hdc_port is not None else "notset",
+        }
+    )
+    write_ini(config_path, config)
+
+    update_key_value_file(destination / "hardware-qemu.ini", {"hvd.id": new_name, "hvd.name": new_name})
+    update_lists_json(root, source.name, new_name, destination, new_uuid)
+
+    return find_hvd(root, new_name)
+
+
+def delete_hvd(root: Path = DEFAULT_HVD_ROOT, name: str | None = None, confirm_name: str | None = None) -> HvdInfo:
+    root = ensure_root(root)
+    if not name:
+        raise HvdManagerError("name is required")
+    validate_name(name)
+    if confirm_name != name:
+        raise HvdManagerError("--confirm-name must exactly match the HVD name")
+
+    hvd = find_hvd(root, name)
+    root_real = root.resolve()
+    hvd_real = hvd.path.resolve()
+    if hvd_real == root_real or root_real not in hvd_real.parents:
+        raise HvdManagerError(f"Refusing to delete path outside HVD root: {hvd.path}")
+
+    if hvd.root_ini.exists():
+        hvd.root_ini.unlink()
+    if hvd.path.exists():
+        shutil.rmtree(hvd.path)
+    remove_from_lists_json(root, hvd.name)
+    return hvd
+
+
+def format_table(hvds: list[HvdInfo]) -> str:
+    if not hvds:
+        return "No HVDs found"
+    rows = [["NAME", "TYPE", "API", "HDC", "EXISTS", "PATH"]]
+    for hvd in hvds:
+        rows.append(
+            [
+                hvd.name,
+                hvd.device_type or "",
+                hvd.api_version or "",
+                hvd.hdc_port or "",
+                "yes" if hvd.exists else "no",
+                str(hvd.path),
+            ]
+        )
+    widths = [max(len(row[index]) for row in rows) for index in range(len(rows[0]))]
+    return "\n".join("  ".join(value.ljust(widths[index]) for index, value in enumerate(row)) for row in rows)
+
+
+def print_json(payload: object) -> None:
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+
+
+def run_download_image(args: argparse.Namespace) -> int:
+    payload = {
+        "decision": "blocked",
+        "operation": "image.download",
+        "deviceType": args.device_type,
+        "apiVersion": args.api_version,
+        "reason": (
+            "DevEco Studio exposes image download through SDK Manager UI APIs; "
+            "no stable non-UI CLI entrypoint has been verified yet."
+        ),
+        "nextStep": "Open DevEco Studio HVD Manager or implement a dedicated SDK Manager bridge after isolating its API contract.",
+    }
+    print_json(payload)
+    return 2
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Manage local DevEco HarmonyOS HVD instances.")
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=None,
+        help=f"HVD root, default: env {','.join(HVD_ROOT_ENV_KEYS)} or {DEFAULT_HVD_ROOT}",
+    )
+    parser.add_argument("--emulator", type=Path, help=f"Emulator executable, or env {','.join(EMULATOR_ENV_KEYS)}")
+    parser.add_argument("--sdk-root", type=Path, help=f"DevEco SDK root, or env {','.join(SDK_ROOT_ENV_KEYS)}")
+    parser.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    doctor_parser = subparsers.add_parser("doctor", help="Probe local HVD, Emulator, and SDK environment")
+    doctor_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+
+    list_parser = subparsers.add_parser("list", help="List registered local HVD instances")
+    list_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+
+    create_parser = subparsers.add_parser("create", help="Clone a local HVD instance with refreshed identity")
+    create_parser.add_argument("--from", dest="source_name", required=True, help="Source HVD name")
+    create_parser.add_argument("--name", dest="new_name", required=True, help="New HVD name")
+    create_parser.add_argument("--hdc-port", type=int, help="Optional HDC port, 10000..16555")
+    create_parser.add_argument("--include-logs", action="store_true", help="Copy source Log directory as well")
+    create_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+
+    delete_parser = subparsers.add_parser("delete", help="Delete a local HVD registration and instance directory")
+    delete_parser.add_argument("--name", required=True, help="HVD name to delete")
+    delete_parser.add_argument("--confirm-name", required=True, help="Must exactly match --name")
+    delete_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+
+    download_parser = subparsers.add_parser("download-image", help="Report current command-line image download support")
+    download_parser.add_argument("--device-type", required=True)
+    download_parser.add_argument("--api-version", required=True)
+
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+
+    try:
+        root = args.root or default_hvd_root()
+        if args.command == "doctor":
+            payload = run_doctor(args.root, args.emulator, args.sdk_root)
+            if args.json:
+                print_json(payload)
+            else:
+                print_json(payload)
+            return 0
+
+        if args.command == "list":
+            hvds = list_hvds(root)
+            if args.json:
+                print_json([hvd.to_json() for hvd in hvds])
+            else:
+                print(format_table(hvds))
+            return 0
+
+        if args.command == "create":
+            hvd = create_hvd(root, args.source_name, args.new_name, args.hdc_port, args.include_logs)
+            if args.json:
+                print_json({"created": hvd.to_json()})
+            else:
+                print(f"Created HVD: {hvd.name}")
+            return 0
+
+        if args.command == "delete":
+            hvd = delete_hvd(root, args.name, args.confirm_name)
+            if args.json:
+                print_json({"deleted": hvd.to_json()})
+            else:
+                print(f"Deleted HVD: {hvd.name}")
+            return 0
+
+        if args.command == "download-image":
+            return run_download_image(args)
+
+    except HvdManagerError as error:
+        payload = {"decision": "blocked", "error": str(error)}
+        if getattr(args, "json", False):
+            print_json(payload)
+        else:
+            print(f"blocked: {error}", file=sys.stderr)
+        return 2
+
+    parser.error(f"Unknown command: {args.command}")
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

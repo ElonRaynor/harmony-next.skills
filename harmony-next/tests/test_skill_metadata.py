@@ -178,6 +178,31 @@ class SkillMetadataTests(unittest.TestCase):
                 self.assertNotIn(fragment, self.skill_text)
                 self.assertNotIn(fragment, self.emulator_playbook_text)
 
+    def test_tooling_script_skills_are_routed_and_documented(self) -> None:
+        required_skill_fragments = [
+            "## Tooling Script Skills",
+            "`commandline_tools_manager.py`",
+            "`hvd_manager.py`",
+            "Agent first command",
+            "User handoff",
+            "download center page URL",
+            "HVD image download",
+        ]
+        required_emulator_fragments = [
+            "## HVD 管理 CLI",
+            "先运行 `doctor --json`",
+            "跨机器分发",
+            "HARMONY_HVD_ROOT",
+            "download-image",
+        ]
+
+        for fragment in required_skill_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, self.skill_text)
+        for fragment in required_emulator_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, self.emulator_playbook_text)
+
     def test_empty_ability_template_is_copyable_for_smoke_tests(self) -> None:
         required_paths = [
             "README.md",

@@ -50,6 +50,7 @@ The goal is to turn those questions into local file lookups that are traceable, 
 | Minimal project scaffold guide | Explains copy, `ohpm install`, `hvigorw --mode module`, SDK override validation, HDC launch, `uitest dumpLayout`, and click smoke validation | [`minimal-project-scaffold.md`](./harmony-next/references/quickStart/ets/minimal-project-scaffold.md) |
 | DevEco emulator private interfaces | Local validation boundaries for starting Emulator without the IDE, `hdc + uitest`, HVD, logs, and diagnostics | [`DevEco模拟器私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco模拟器私有接口与AI自动化.md) |
 | DevEco IDE private interfaces | Static validation boundaries for CodeGenie, local RAG/MCP, `devecostudio://`, Previewer, ArkUI Inspector, Profiler, Doctor, and UxTestService | [`DevEco Studio IDE私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco%20Studio%20IDE私有接口与AI自动化.md) |
+| Command Line Tools setup | Direct archive download, local archive install, PATH profile setup, and `codelinter -v` validation | [`commandline_tools_manager.py`](./harmony-next/scripts/commandline_tools_manager.py) |
 | Reference corpus | `3,693` Markdown files total, with `3,666` under `JsEtsAPIReference/` | [`harmony-next/references/`](./harmony-next/references/) |
 
 ## Recommended Retrieval Path
@@ -88,6 +89,7 @@ The core principle is simple: find the path first, then read the content.
 
 - Signing, emulators, real devices, and breakpoints
 - Standalone CLI setup and CI/CD integration
+- Command Line Tools can be installed with `python3 harmony-next/scripts/commandline_tools_manager.py install --archive <zip> --dest ~/.harmony/command-line-tools --profile auto`; for download, pass a direct archive URL copied from Huawei's download center to `bootstrap --url <archive-url>`, preferably with `--sha256`
 - Performance analysis and release workflows
 - DevEco Studio / HarmonyOS Emulator automation: launching without the IDE, HVD, multi-instance runs, `hdc`, `uitest`, `aa`, `bm`, `hilog`, and `hidumper`
 - Copy `references/templates/empty-ability-app` to generate a minimal Empty Ability fixture; the page exposes `smoke-increment` for `uitest dumpLayout`, screenshots, and log smoke checks
@@ -104,6 +106,7 @@ Usage rules:
 - Re-verify the current DevEco / Emulator / SDK version and command capabilities before each run.
 - Users are assumed to have full execution authority; long-running automation can use `HARMONY_NEXT_AUTOMATION_POLICY`, `--policy`, or `.harmony-next-policy.json` to describe execution mode, artifact directories, and redaction contracts.
 - Real screenshots, layouts, log bundles, installs/uninstalls, port forwarding, and HVD create/delete flows run non-interactively; missing target, artifact directory, redaction policy, or timeout returns a machine-readable blocked result.
+- This repo provides `python3 harmony-next/scripts/hvd_manager.py`: `doctor` environment probing, `list`, `create --from <source> --name <new>`, and `delete --name <name> --confirm-name <name>` are supported; use `--root` / `HARMONY_HVD_ROOT`, `--emulator` / `HARMONY_EMULATOR`, and `--sdk-root` / `DEVECO_SDK_HOME` for machine-specific layouts; `download-image` currently returns blocked because image downloads have only been verified through the IDE SDK Manager UI.
 
 ### DevEco Studio IDE Private Interfaces
 

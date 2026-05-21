@@ -31,6 +31,7 @@ Install/update entrypoints:
    - API, component, error, or code example: use `KITS.md`, `TASK_MAP.md`, and `INDEX.md`; do not read the DevEco playbooks.
    - Minimal project fixture, Empty Ability scaffold, HDC/uitest smoke app, or copyable HarmonyOS test project: use `references/quickStart/ets/minimal-project-scaffold.md` and `references/templates/empty-ability-app/`.
    - DevEco Studio IDE, plugins, local services, CodeGenie, MCP, LanceDB, or `devecostudio://`: read the IDE playbook.
+   - HarmonyOS Command Line Tools download, archive install, PATH setup, or `codelinter -v` validation: read `references/ideGuides/独立命令行工具配置手册.md` and use `scripts/commandline_tools_manager.py`.
    - HarmonyOS Emulator, HVD, hdc, uitest, aa, bm, hilog, or hidumper automation: read the Emulator playbook.
    - Unknown domain: start with `references/TASK_MAP.md`, then refine through `references/INDEX.md`.
 
@@ -56,6 +57,21 @@ From the skill directory:
 
 From the repository root, use `harmony-next/references/...` in the same commands.
 
+## Tooling Script Skills
+
+Use these script-backed skill entries before hand-writing DevEco setup commands. They are intentionally small wrappers around unstable local tooling and should return structured status when the environment is missing.
+
+| User intent | Script skill | Agent first command | User handoff |
+| --- | --- | --- | --- |
+| Download, install, configure, or validate HarmonyOS Command Line Tools | `commandline_tools_manager.py` | `python3 harmony-next/scripts/commandline_tools_manager.py doctor --tools-root <dir> --json` | If the user gives a Huawei download center page URL, return the script's blocked result and ask the user to log in, copy the direct archive URL, or provide a local archive. |
+| List, clone, delete, or diagnose local DevEco HVD instances | `hvd_manager.py` | `python3 harmony-next/scripts/hvd_manager.py doctor --json` | If HVD root, Emulator, or SDK paths are missing, report the `issues` and `recommendations` fields and ask the user to pass `--root`, `--emulator`, or `--sdk-root` / matching env vars. |
+
+Boundaries:
+
+- `commandline_tools_manager.py` may download only a direct archive URL; a download center page URL is a login-gated page, not an archive.
+- `hvd_manager.py download-image` reports HVD image download as machine-readable `blocked`; current verified path is DevEco Studio SDK Manager UI, not a stable non-UI CLI.
+- For cross-machine support, prefer `doctor --json` output over hard-coded macOS paths in answers and docs.
+
 ## Minimal Empty Ability Scaffold
 
 Use when an agent needs a copyable HarmonyOS NEXT smoke fixture without opening DevEco Studio:
@@ -68,6 +84,15 @@ Use when an agent needs a copyable HarmonyOS NEXT smoke fixture without opening 
 - API 22 schema compatibility depends on app and Ability icons: keep `AppScope/resources/base/media/app_icon.png`, app `icon`, Ability `icon`, and `startWindowIcon` in the template.
 - Stable smoke UI signals: `Harmony Smoke Ready`, `smoke-title`, `smoke-counter`, `smoke-increment`.
 - Interactive smoke: after launch, use `uitest uiInput click` on the `smoke-increment` bounds and verify `tapCount=1` / `Harmony Smoke Tapped` from a fresh `dumpLayout`.
+
+## Command Line Tools Setup
+
+Use when the user asks to download or configure HarmonyOS Command Line Tools without DevEco Studio.
+
+- Official boundary: Huawei's "获取命令行工具" page points agents to the Command Line Tools download center, says HarmonyOS SDK is embedded in the package, and configures `${Command Line Tools解压路径}/command-line-tools/bin` in `PATH`.
+- This skill provides `scripts/commandline_tools_manager.py` for a controlled local flow: `download --url <direct-archive-url>`, `install --archive <zip> --dest <dir> --profile auto`, `bootstrap --url <direct-archive-url> ...`, `configure --tools-root <dir> --profile auto`, and `doctor --tools-root <dir>`.
+- The script requires a direct archive URL copied from Huawei's download center or a local archive path. If given the download center page URL, it returns machine-readable `blocked` instead of pretending to resolve the current package.
+- Use `--sha256 <digest>` when Huawei's integrity value is available.
 
 ## DevEco Emulator Automation
 
@@ -84,6 +109,7 @@ Default boundary:
 - 区分 `riskLevel` 与执行模式：用户默认拥有完整执行权限；skill 不做授权或确认拦截。`HARMONY_NEXT_AUTOMATION_POLICY`、`--policy` 和 `.harmony-next-policy.json` 只描述本次 run 的自动化模式、产物目录与脱敏契约。
 - 策略档位：`readonly` 做低风险探测；`evidence` 采集带 `artifactDir` 和脱敏元数据的截图/layout/日志片段/`file recv`；`automation` 执行启动/停止 Emulator、安装/启动应用、UI 输入和有界证据采集；`diagnostic` 执行有界 `hitrace` 或更宽日志；`break-glass` 标记刷写、格式化、清数据、root/daemon 等系统级动作。
 - 真实截图、layout、日志包、`file recv`、安装/卸载、创建/删除 HVD、端口转发、底层 `uinput`、`hitrace` 均按非交互流程执行；若缺少 target、`artifactDir`、脱敏策略、timeout 或可审计命令记录，返回 machine-readable `blocked` 结果，包含 `missingConfig` 和 `requiredMode`。
+- 本 skill 提供 `scripts/hvd_manager.py` 作为受控命令行封装：`doctor` 探测 HVD root、Emulator 和 SDK 环境，`list` 枚举本地 HVD，`create --from <source> --name <new>` 克隆同版本本地实例并刷新身份，`delete --name <name> --confirm-name <name>` 删除实例注册和目录。支持 `--root` / `HARMONY_HVD_ROOT`、`--emulator` / `HARMONY_EMULATOR`、`--sdk-root` / `DEVECO_SDK_HOME` 做跨机器适配。`download-image` 仅返回 machine-readable `blocked`，因为当前只验证到 IDE SDK Manager UI 入口，未确认稳定非 UI 下载 CLI。
 - 多 target 时必须显式选择 `127.0.0.1:<port>`；只选择 `Connected`，忽略 `Offline`。
 - 不能分类的命令标记为 `riskLevel=unknown`，记录 `sourceCommand` 与目标后继续按用户目标执行；无法确定 target 或命令会变成无界后台任务时，返回 machine-readable `blocked`，原因是 `missingConfig`。
 

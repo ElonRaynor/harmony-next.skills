@@ -181,6 +181,42 @@ TARGET="127.0.0.1:<hdc-port>"
 
 当前没有确认到稳定公开的 `Emulator create` 子命令。本地 HVD 创建在技术上可行，但属于“复制同版本可启动实例并刷新必要元数据”的高风险操作；具体文件、字段和编辑步骤不写入公开沉淀。
 
+2026-05-21 追加静态验证：DevEco Studio 6.0.2.642 的 IDE 包内存在 HVD Manager UI 实现，位置为 `Contents/plugins/harmony/lib/device-mgmt-6.0.2.642.jar`。其中可见 `RunHuaweiHvdManagerAction`、`DownloadImageAction`、`CreateHvdAction`、`DeleteHvdAction`、`ImageDownloadAction`、`ImageDeleteAction` 等类。这说明 IDE 内部确实有下载镜像、新建 HVD、删除 HVD 的 UI action，但这些不是 `Emulator` 可执行文件暴露的稳定 CLI。
+
+静态反编译到的调用边界：
+
+- 镜像下载 / 删除走 SDK Manager 弹窗：`HosIdeaDialogSdkInfoHandler.showInstallPackagesDialog(...)` / `showDeletePackagesDialog(...)`。
+- 新建 HVD 走 `LocalDeviceConnection.createDevice(...)`，核心动作是生成实例目录、`config.ini` 和 `<name>.ini` 配置文件。
+- 删除 HVD 走 `LocalDeviceConnection.deleteHvd(...)`，核心动作是删除 `<name>.ini`、实例目录内容和实例目录本身。
+- `Emulator -help` 仍只列出 `-hvd`、`-path`、`-imageRoot`、`-logZip`、`-logPath`、`-stop`、`-version`、`-list`、`-hdcport`。
+
+2026-05-21 已新增受控命令行封装：
+
+```bash
+python3 harmony-next/scripts/hvd_manager.py list --json
+python3 harmony-next/scripts/hvd_manager.py doctor --json
+python3 harmony-next/scripts/hvd_manager.py create --from "<source-hvd>" --name "<new-hvd>" --hdc-port 10100
+python3 harmony-next/scripts/hvd_manager.py delete --name "<new-hvd>" --confirm-name "<new-hvd>"
+python3 harmony-next/scripts/hvd_manager.py download-image --device-type phone --api-version 22
+```
+
+实现边界：
+
+- `list` 只读解析 HVD root 下的根 `.ini` 与实例 `config.ini`。
+- `doctor` 探测本机平台、HVD root、Emulator 可执行文件、SDK root、Emulator 版本和 HVD 列表；输出不包含 HVD UUID。
+- `create` 以现有本地实例为源克隆目录，刷新名称、路径、UUID、`hardware-qemu.ini` 中的 HVD 名称以及可选 HDC 端口；默认不复制旧日志。
+- `delete` 必须传入完全匹配的 `--confirm-name`，只删除 HVD root 内目标实例目录、根 `.ini` 和 `lists.json` 同名条目。
+- `download-image` 暂不执行下载，只返回 machine-readable `blocked`，用于明确区分“已有命令入口”和“仍需 SDK Manager bridge 的能力”。
+- 环境适配：`--root` / `HARMONY_HVD_ROOT` 指定 HVD root；`--emulator` / `HARMONY_EMULATOR` 指定 Emulator；`--sdk-root` / `DEVECO_SDK_HOME` 指定 SDK root。未指定时脚本会按当前平台探测常见 DevEco Studio 安装位置。
+
+真实环境 smoke（2026-05-21）：
+
+- `list --json` 在本机 HVD root 下只读列出 `Codex Test Phone` 与 `Pura 90 Pro Max`，输出不包含 UUID。
+- `doctor --json` 在本机 macOS arm64 上发现 HVD root、`/Applications/DevEco-Studio.app/Contents/tools/emulator/Emulator`、`/Applications/DevEco-Studio.app/Contents/sdk`，并读取 `HarmonyOS Emulator :6.0.2.200`。
+- 从 `Codex Test Phone` 创建 `Codex CLI Smoke 20260521`，指定 `--hdc-port 10101`。
+- 验证新实例 `config.ini` 中 `name`、`productModel`、`hw.hdc.port` 已刷新，`hardware-qemu.ini` 中 `hvd.id`、`hvd.name` 已刷新，`list --json` 可见新实例。
+- 执行 `delete --name "Codex CLI Smoke 20260521" --confirm-name "Codex CLI Smoke 20260521"` 后，确认临时实例目录和根 `.ini` 均已删除，原有 HVD 保留。
+
 风险门禁：
 
 - 本节只记录能力结论、验收信号和风险边界。

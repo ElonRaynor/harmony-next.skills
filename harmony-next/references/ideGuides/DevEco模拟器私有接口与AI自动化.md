@@ -210,6 +210,33 @@ cd "/Applications/DevEco-Studio.app/Contents/tools/emulator"
   -path "$HOME/.Huawei/Emulator/deployed"
 ```
 
+## HVD 管理 CLI
+
+仓库提供一个受控命令行封装：
+
+```bash
+python3 harmony-next/scripts/hvd_manager.py list --json
+python3 harmony-next/scripts/hvd_manager.py doctor --json
+python3 harmony-next/scripts/hvd_manager.py create --from "<source-hvd>" --name "<new-hvd>" --hdc-port 10100
+python3 harmony-next/scripts/hvd_manager.py delete --name "<new-hvd>" --confirm-name "<new-hvd>"
+python3 harmony-next/scripts/hvd_manager.py download-image --device-type phone --api-version 22
+```
+
+边界：
+
+- 跨机器分发时，先运行 `doctor --json`，根据输出中的 `hvdRoot`、`emulator`、`sdkRoot`、`issues` 和 `recommendations` 判断是否需要让用户补路径。
+- `list` 只读解析 `$HOME/.Huawei/Emulator/deployed/*.ini` 和每个实例的 `config.ini`。
+- `doctor` 探测本机平台、HVD root、Emulator 可执行文件、SDK root、Emulator 版本和已注册 HVD；输出不包含 HVD UUID。
+- `create` 克隆一个同版本本地实例，刷新根 `<name>.ini`、实例 `config.ini`、`hardware-qemu.ini` 中的名称、路径、UUID 与可选 HDC 端口；默认不复制 `Log`。
+- `delete` 删除根 `<name>.ini`、实例目录和 `lists.json` 中的同名条目；必须传 `--confirm-name` 且值与目标名完全一致。
+- `download-image` 目前不下载，只输出 machine-readable `blocked`。DevEco Studio 6.0.2.642 中下载镜像走 SDK Manager UI API，尚未验证稳定的非 UI 下载入口。
+
+环境适配：
+
+- HVD root：优先 `--root`，其次 `HARMONY_HVD_ROOT` / `DEVECO_HVD_ROOT` / `HVD_ROOT`，最后 `$HOME/.Huawei/Emulator/deployed`。
+- Emulator：优先 `--emulator`，其次 `HARMONY_EMULATOR` / `DEVECO_EMULATOR` / `EMULATOR`，再查 PATH 与常见 DevEco Studio 安装路径。
+- SDK root：优先 `--sdk-root`，其次 `DEVECO_SDK_HOME` / `HOS_SDK_HOME` / `HARMONY_SDK_HOME`，再查常见 DevEco Studio SDK 路径。
+
 ## 等待可操作状态
 
 1. 等待 `hdc list targets -v` 中目标为 `TCP Connected`。
