@@ -204,6 +204,22 @@ python3 harmony-next/scripts/hvd_manager.py \
 
 若 helper 不可用，期望输出 `decision=blocked`、`missingConfig=["tracePipeHelper"]`，并包含上述已知 modal 症状。
 
+需要由仓库脚本直接执行启动时，使用 `launch`。该命令会创建本轮启动用的有界 trace socket，启动 Emulator，并在默认路径下等待 HDC target；只想验证启动进程与 trace socket 连接时传 `--no-wait-target`：
+
+```bash
+python3 harmony-next/scripts/hvd_manager.py \
+  --root "$HOME/.Huawei/Emulator/deployed" \
+  --emulator "/Applications/DevEco-Studio.app/Contents/tools/emulator/Emulator" \
+  launch \
+  --name "<hvd-name>" \
+  --image-root "$HOME/Library/Huawei/Sdk" \
+  --trace-name "<trace-name>" \
+  --timeout 30 \
+  --json
+```
+
+`launch` 输出 `decision=allowed`、`operation=emulator.launch`、`result=started`、`socketConnected=true`、`traceBytesRead` 和实际 `emulatorCommand`。缺少 HVD、Emulator、image root 或 trace name 时返回 machine-readable `blocked`，不要退回到裸 `Emulator -hvd ... -path ... -imageRoot ...`。
+
 使用模板：
 
 ```bash
@@ -245,6 +261,7 @@ python3 harmony-next/scripts/hvd_manager.py doctor --json
 python3 harmony-next/scripts/hvd_manager.py create --from "<source-hvd>" --name "<new-hvd>" --hdc-port 10100
 python3 harmony-next/scripts/hvd_manager.py delete --name "<new-hvd>" --confirm-name "<new-hvd>"
 python3 harmony-next/scripts/hvd_manager.py launch-preflight --name "<hvd-name>" --trace-name "<trace-name>" --trace-helper-ready-file "<helper-ready-file>" --json
+python3 harmony-next/scripts/hvd_manager.py launch --name "<hvd-name>" --image-root "<sdk-image-root>" --trace-name "<trace-name>" --json
 python3 harmony-next/scripts/hvd_manager.py download-image --device-type phone --api-version 22
 ```
 
@@ -256,6 +273,7 @@ python3 harmony-next/scripts/hvd_manager.py download-image --device-type phone -
 - `create` 克隆一个同版本本地实例，刷新根 `<name>.ini`、实例 `config.ini`、`hardware-qemu.ini` 中的名称、路径、UUID 与可选 HDC 端口；默认不复制 `Log`。
 - `delete` 删除根 `<name>.ini`、实例目录和 `lists.json` 中的同名条目；必须传 `--confirm-name` 且值与目标名完全一致。
 - `launch-preflight` 验证 HVD、Emulator、SDK root、`traceName` 和 trace helper readiness；缺少 helper 时返回 `blocked`，满足时只输出包含 `-t <trace-name>` 的启动命令计划，不直接执行 Emulator。
+- `launch` 创建 `/tmp/<trace-name>` 启动期 trace socket，执行带 `-t <trace-name>` 的 Emulator 命令，并可等待 `hdc list targets -v` 中出现 `Connected`；多实例必须使用不同 trace name 和 HDC 端口。
 - `download-image` 目前不下载，只输出 machine-readable `blocked`。DevEco Studio 6.0.2.642 中下载镜像走 SDK Manager UI API，尚未验证稳定的非 UI 下载入口。
 
 环境适配：

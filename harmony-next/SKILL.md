@@ -64,11 +64,12 @@ Use these script-backed skill entries before hand-writing DevEco setup commands.
 | User intent | Script skill | Agent first command | User handoff |
 | --- | --- | --- | --- |
 | Download, install, configure, or validate HarmonyOS Command Line Tools | `commandline_tools_manager.py` | `python3 harmony-next/scripts/commandline_tools_manager.py doctor --tools-root <dir> --json` | If the user gives a Huawei download center page URL, return the script's blocked result and ask the user to log in, copy the direct archive URL, or provide a local archive. |
-| List, clone, delete, or diagnose local DevEco HVD instances | `hvd_manager.py` | `python3 harmony-next/scripts/hvd_manager.py doctor --json` | If HVD root, Emulator, or SDK paths are missing, report the `issues` and `recommendations` fields and ask the user to pass `--root`, `--emulator`, or `--sdk-root` / matching env vars. |
+| List, clone, delete, diagnose, or launch local DevEco HVD instances | `hvd_manager.py` | `python3 harmony-next/scripts/hvd_manager.py doctor --json` | If HVD root, Emulator, SDK/image root, or trace startup data is missing, report the `issues`, `recommendations`, and `missingConfig` fields and ask the user to pass `--root`, `--emulator`, `--sdk-root` / `--image-root`, or matching env vars. |
 
 Boundaries:
 
 - `commandline_tools_manager.py` may download only a direct archive URL; a download center page URL is a login-gated page, not an archive.
+- `hvd_manager.py launch-preflight` prints a guarded Emulator command plan when an external trace helper is already ready; `hvd_manager.py launch` creates a bounded startup trace socket, starts Emulator with `-t <trace-name>`, and can wait for an HDC target unless `--no-wait-target` is passed.
 - `hvd_manager.py download-image` reports HVD image download as machine-readable `blocked`; current verified path is DevEco Studio SDK Manager UI, not a stable non-UI CLI.
 - For cross-machine support, prefer `doctor --json` output over hard-coded macOS paths in answers and docs.
 
@@ -111,7 +112,7 @@ Default boundary:
 - 区分 `riskLevel` 与执行模式：用户默认拥有完整执行权限；skill 不做授权或确认拦截。`HARMONY_NEXT_AUTOMATION_POLICY`、`--policy` 和 `.harmony-next-policy.json` 只描述本次 run 的自动化模式、产物目录与脱敏契约。
 - 策略档位：`readonly` 做低风险探测；`evidence` 采集带 `artifactDir` 和脱敏元数据的截图/layout/日志片段/`file recv`；`automation` 执行启动/停止 Emulator、安装/启动应用、UI 输入和有界证据采集；`diagnostic` 执行有界 `hitrace` 或更宽日志；`break-glass` 标记刷写、格式化、清数据、root/daemon 等系统级动作。
 - 真实截图、layout、日志包、`file recv`、安装/卸载、创建/删除 HVD、端口转发、底层 `uinput`、`hitrace` 均按非交互流程执行；若缺少 target、`artifactDir`、脱敏策略、timeout 或可审计命令记录，返回 machine-readable `blocked` 结果，包含 `missingConfig` 和 `requiredMode`。
-- 本 skill 提供 `scripts/hvd_manager.py` 作为受控命令行封装：`doctor` 探测 HVD root、Emulator 和 SDK 环境，`list` 枚举本地 HVD，`create --from <source> --name <new>` 克隆同版本本地实例并刷新身份，`delete --name <name> --confirm-name <name>` 删除实例注册和目录，`launch-preflight --name <hvd> --trace-name <name> --trace-helper-ready-file <file>` 只验证 trace pipe 前置条件并输出带 `-t` 的启动计划。支持 `--root` / `HARMONY_HVD_ROOT`、`--emulator` / `HARMONY_EMULATOR`、`--sdk-root` / `DEVECO_SDK_HOME` 做跨机器适配。`download-image` 仅返回 machine-readable `blocked`，因为当前只验证到 IDE SDK Manager UI 入口，未确认稳定非 UI 下载 CLI。
+- 本 skill 提供 `scripts/hvd_manager.py` 作为受控命令行封装：`doctor` 探测 HVD root、Emulator 和 SDK 环境，`list` 枚举本地 HVD，`create --from <source> --name <new>` 克隆同版本本地实例并刷新身份，`delete --name <name> --confirm-name <name>` 删除实例注册和目录，`launch-preflight --name <hvd> --trace-name <name> --trace-helper-ready-file <file>` 只验证 trace pipe 前置条件并输出带 `-t` 的启动计划，`launch --name <hvd> --image-root <dir> --trace-name <name>` 创建有界 trace socket 并启动 Emulator。支持 `--root` / `HARMONY_HVD_ROOT`、`--emulator` / `HARMONY_EMULATOR`、`--sdk-root` / `DEVECO_SDK_HOME` 做跨机器适配。`download-image` 仅返回 machine-readable `blocked`，因为当前只验证到 IDE SDK Manager UI 入口，未确认稳定非 UI 下载 CLI。
 - 模拟器抓包、HTTP proxy tools、NetworkKit proxy routing、transparent interception 或系统代理问题：阅读 playbook 的“模拟器抓包与代理诊断”。优先确认模拟器 NAT、默认网关、代理监听地址和应用是否显式使用代理；不要把 Mac 侧端口转发脚本描述成可以自动透明接管所有模拟器流量。
 - 多 target 时必须显式选择 `127.0.0.1:<port>`；只选择 `Connected`，忽略 `Offline`。
 - 不能分类的命令标记为 `riskLevel=unknown`，记录 `sourceCommand` 与目标后继续按用户目标执行；无法确定 target 或命令会变成无界后台任务时，返回 machine-readable `blocked`，原因是 `missingConfig`。

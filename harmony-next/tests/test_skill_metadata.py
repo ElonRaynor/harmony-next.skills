@@ -185,6 +185,7 @@ class SkillMetadataTests(unittest.TestCase):
             "`hvd_manager.py`",
             "Agent first command",
             "User handoff",
+            "launch --name <hvd> --image-root <dir> --trace-name <name>",
             "download center page URL",
             "HVD image download",
         ]
@@ -193,6 +194,9 @@ class SkillMetadataTests(unittest.TestCase):
             "先运行 `doctor --json`",
             "跨机器分发",
             "HARMONY_HVD_ROOT",
+            "socketConnected=true",
+            "traceBytesRead",
+            "emulator.launch",
             "download-image",
         ]
 

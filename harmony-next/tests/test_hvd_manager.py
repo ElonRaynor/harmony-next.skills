@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -371,6 +372,63 @@ class HvdManagerTests(unittest.TestCase):
         self.assertIn("ai-emu-test", payload["emulatorCommand"])
         self.assertIn("-hdcport", payload["emulatorCommand"])
         self.assertIn("10123", payload["emulatorCommand"])
+
+    def test_launch_creates_trace_socket_and_starts_emulator(self) -> None:
+        emulator = Path(self.temp_dir.name) / "Emulator"
+        emulator.write_text(
+            textwrap.dedent(
+                """\
+                #!/usr/bin/env python3
+                import socket
+                import sys
+
+                trace_name = sys.argv[sys.argv.index("-t") + 1]
+                client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                client.connect(f"/tmp/{trace_name}")
+                client.sendall(b'{"event":"fake-start"}\\n')
+                client.close()
+                """
+            ),
+            encoding="utf-8",
+        )
+        emulator.chmod(0o755)
+        image_root = Path(self.temp_dir.name) / "image-root"
+        image_root.mkdir()
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                "--root",
+                str(self.root),
+                "--emulator",
+                str(emulator),
+                "launch",
+                "--name",
+                "Source Phone",
+                "--image-root",
+                str(image_root),
+                "--trace-name",
+                "ai-emu-test-launch",
+                "--no-wait-target",
+                "--timeout",
+                "3",
+                "--json",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["decision"], "allowed")
+        self.assertEqual(payload["operation"], "emulator.launch")
+        self.assertEqual(payload["result"], "started")
+        self.assertEqual(payload["traceName"], "ai-emu-test-launch")
+        self.assertTrue(payload["socketConnected"])
+        self.assertGreater(payload["traceBytesRead"], 0)
+        self.assertIn("-t", payload["emulatorCommand"])
+        self.assertIn("ai-emu-test-launch", payload["emulatorCommand"])
 
 
 if __name__ == "__main__":

@@ -219,6 +219,7 @@ python3 harmony-next/scripts/hvd_manager.py doctor --json
 python3 harmony-next/scripts/hvd_manager.py create --from "<source-hvd>" --name "<new-hvd>" --hdc-port 10100
 python3 harmony-next/scripts/hvd_manager.py delete --name "<new-hvd>" --confirm-name "<new-hvd>"
 python3 harmony-next/scripts/hvd_manager.py launch-preflight --name "<hvd-name>" --trace-name "<trace-name>" --trace-helper-ready-file "<helper-ready-file>" --json
+python3 harmony-next/scripts/hvd_manager.py launch --name "<hvd-name>" --image-root "<sdk-image-root>" --trace-name "<trace-name>" --json
 python3 harmony-next/scripts/hvd_manager.py download-image --device-type phone --api-version 22
 ```
 
@@ -229,6 +230,7 @@ python3 harmony-next/scripts/hvd_manager.py download-image --device-type phone -
 - `create` 以现有本地实例为源克隆目录，刷新名称、路径、UUID、`hardware-qemu.ini` 中的 HVD 名称以及可选 HDC 端口；默认不复制旧日志。
 - `delete` 必须传入完全匹配的 `--confirm-name`，只删除 HVD root 内目标实例目录、根 `.ini` 和 `lists.json` 同名条目。
 - `launch-preflight` 验证启动前置条件，不创建 trace pipe、不启动 Emulator；缺少 `traceName` 或 helper readiness 文件时返回 `blocked`，满足时输出含 `-t <trace-name>` 的命令计划。
+- `launch` 创建启动期 trace socket，执行含 `-t <trace-name>` 的 Emulator 命令；缺少 HVD、Emulator、image root 或 trace name 时返回 machine-readable `blocked`。
 - `download-image` 暂不执行下载，只返回 machine-readable `blocked`，用于明确区分“已有命令入口”和“仍需 SDK Manager bridge 的能力”。
 - 环境适配：`--root` / `HARMONY_HVD_ROOT` 指定 HVD root；`--emulator` / `HARMONY_EMULATOR` 指定 Emulator；`--sdk-root` / `DEVECO_SDK_HOME` 指定 SDK root。未指定时脚本会按当前平台探测常见 DevEco Studio 安装位置。
 
