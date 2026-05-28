@@ -19,6 +19,7 @@ HVD_ROOT_ENV_KEYS = ["HARMONY_HVD_ROOT", "DEVECO_HVD_ROOT", "HVD_ROOT"]
 EMULATOR_ENV_KEYS = ["HARMONY_EMULATOR", "DEVECO_EMULATOR", "EMULATOR"]
 SDK_ROOT_ENV_KEYS = ["DEVECO_SDK_HOME", "HOS_SDK_HOME", "HARMONY_SDK_HOME"]
 NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}$")
+LOGIN_GATED_MODAL_SYMPTOM = "模拟器启动失败 / 请在DevEco Studio中登录华为账号，并从设备管理中启动模拟器"
 
 
 class HvdManagerError(RuntimeError):
@@ -504,6 +505,80 @@ def run_download_image(args: argparse.Namespace) -> int:
     return 2
 
 
+def run_launch_preflight(args: argparse.Namespace, root: Path, emulator: Path | None, sdk_root: Path | None) -> int:
+    root = ensure_root(root)
+    hvd = find_hvd(root, args.name)
+    emulator_probe = probe_first_existing([(emulator, "arg:emulator")] if emulator else candidate_emulators(), executable=True)
+    sdk_probe = probe_first_existing([(sdk_root, "arg:sdk-root")] if sdk_root else candidate_sdk_roots())
+
+    missing_config: list[str] = []
+    issues: list[str] = []
+    recommendations: list[str] = []
+
+    if not emulator_probe.exists:
+        missing_config.append("emulator")
+        issues.append("Emulator executable was not found")
+        recommendations.append("Pass --emulator or set HARMONY_EMULATOR to DevEco Studio tools/emulator/Emulator.")
+    elif not emulator_probe.executable:
+        missing_config.append("emulatorExecutable")
+        issues.append(f"Emulator is not executable: {emulator_probe.path}")
+
+    if not sdk_probe.exists:
+        missing_config.append("sdkRoot")
+        recommendations.append("Pass --sdk-root or set DEVECO_SDK_HOME to the SDK image root.")
+
+    if not hvd.exists:
+        missing_config.append("hvdDirectory")
+        issues.append(f"HVD directory was not found: {hvd.path}")
+        recommendations.append("Create or repair the HVD in DevEco Studio before launching from CLI.")
+
+    if not args.trace_name:
+        missing_config.append("traceName")
+    if not args.trace_helper_ready_file or not args.trace_helper_ready_file.expanduser().is_file():
+        missing_config.append("tracePipeHelper")
+        recommendations.append(
+            "Start a verified trace-pipe helper first and pass --trace-helper-ready-file for this preflight."
+        )
+
+    payload: dict[str, object] = {
+        "decision": "blocked" if missing_config else "allowed",
+        "operation": "emulator.launch.preflight",
+        "hvdName": hvd.name,
+        "hvdRoot": str(root),
+        "hvdExists": hvd.exists,
+        "traceName": args.trace_name,
+        "knownSymptom": LOGIN_GATED_MODAL_SYMPTOM,
+        "missingConfig": missing_config,
+        "issues": issues,
+        "recommendations": recommendations,
+    }
+
+    if missing_config:
+        print_json(payload)
+        return 2
+
+    command = [
+        str(emulator_probe.path),
+        "-hvd",
+        hvd.name,
+        "-path",
+        str(root),
+        "-t",
+        args.trace_name,
+        "-imageRoot",
+        str(sdk_probe.path),
+    ]
+    if args.hdc_port is not None:
+        if not 10000 <= args.hdc_port <= 16555:
+            raise HvdManagerError("hdc_port must be in range 10000..16555")
+        command.extend(["-hdcport", str(args.hdc_port)])
+
+    payload["emulatorCommand"] = command
+    payload["traceHelperReadyFile"] = str(args.trace_helper_ready_file.expanduser().resolve())
+    print_json(payload)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Manage local DevEco HarmonyOS HVD instances.")
     parser.add_argument(
@@ -538,6 +613,20 @@ def build_parser() -> argparse.ArgumentParser:
     download_parser = subparsers.add_parser("download-image", help="Report current command-line image download support")
     download_parser.add_argument("--device-type", required=True)
     download_parser.add_argument("--api-version", required=True)
+
+    launch_preflight_parser = subparsers.add_parser(
+        "launch-preflight",
+        help="Validate trace-pipe startup preconditions and print a guarded Emulator command plan",
+    )
+    launch_preflight_parser.add_argument("--name", required=True, help="HVD name to launch")
+    launch_preflight_parser.add_argument("--trace-name", help="Trace pipe name prepared by a verified helper")
+    launch_preflight_parser.add_argument(
+        "--trace-helper-ready-file",
+        type=Path,
+        help="Readiness marker written by the verified trace pipe helper",
+    )
+    launch_preflight_parser.add_argument("--hdc-port", type=int, help="Optional HDC port, 10000..16555")
+    launch_preflight_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON")
 
     return parser
 
@@ -582,6 +671,9 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.command == "download-image":
             return run_download_image(args)
+
+        if args.command == "launch-preflight":
+            return run_launch_preflight(args, root, args.emulator, args.sdk_root)
 
     except HvdManagerError as error:
         payload = {"decision": "blocked", "error": str(error)}

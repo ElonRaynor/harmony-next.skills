@@ -170,14 +170,39 @@ wukong focus
 
 ## 启动模拟器
 
-当前版本线索显示：直接启动 Emulator 通常需要 `-hvd`、`-path`、`-imageRoot`，并可能需要 `-t <trace-name>` 对应的本地占位通道。占位通道是启动期依赖，不要把它当稳定控制协议。
+当前版本线索显示：直接启动 Emulator 通常需要 `-hvd`、`-path`、`-imageRoot`，并需要 `-t <trace-name>` 对应的本地占位通道。占位通道是启动期依赖，不要把它当稳定控制协议。
+
+不要把 `Emulator -hvd ... -path ... -imageRoot ...` 当成完整启动命令。缺少 `-t <trace-name>` 或缺少已准备好的 trace pipe 时，DevEco Emulator 可能弹出以下登录/设备管理模态框：
+
+```text
+模拟器启动失败
+请在DevEco Studio中登录华为账号，并从设备管理中启动模拟器
+```
+
+这类弹窗优先归类为不完整 CLI 启动路径的已知症状。不要立即引导用户登录；先停止启动尝试，检查 trace pipe helper 是否已准备并持有对应通道。
 
 `<trace-name>` 处理规则：
 
 - 优先沿用当前任务或已验证 helper 生成的唯一 trace name。
-- 找不到已验证来源时，可以生成仅用于本轮的唯一名称，例如 `ai-emu-<YYYYMMDDHHMMSS>`，但必须说明这不是稳定协议。
-- 若缺少占位通道导致启动失败，停止本轮启动尝试，只报告 Emulator 版本、HVD 名称、命令类型和裁剪后的错误摘要，不继续 UI 自动化。
+- 找不到已验证 helper 或 helper readiness 信号时，返回 machine-readable `blocked`，不要执行部分启动命令。
+- 若缺少占位通道导致启动失败，停止本轮启动尝试，只报告 Emulator 版本、HVD 名称、命令类型、已知 modal 症状和裁剪后的错误摘要，不继续 UI 自动化。
 - 不记录或沉淀 HVD 内部字段、trace pipe 私有协议或未验证 helper 细节。
+
+脚本化时先用仓库 helper 做 preflight。该命令只验证 HVD、Emulator、SDK 和 trace helper readiness，不负责创建私有 trace pipe，也不直接启动 Emulator：
+
+```bash
+python3 harmony-next/scripts/hvd_manager.py \
+  --root "$HOME/.Huawei/Emulator/deployed" \
+  --emulator "/Applications/DevEco-Studio.app/Contents/tools/emulator/Emulator" \
+  --sdk-root "$HOME/Library/Huawei/Sdk" \
+  launch-preflight \
+  --name "<hvd-name>" \
+  --trace-name "<trace-name>" \
+  --trace-helper-ready-file "<helper-ready-file>" \
+  --json
+```
+
+若 helper 不可用，期望输出 `decision=blocked`、`missingConfig=["tracePipeHelper"]`，并包含上述已知 modal 症状。
 
 使用模板：
 
@@ -219,6 +244,7 @@ python3 harmony-next/scripts/hvd_manager.py list --json
 python3 harmony-next/scripts/hvd_manager.py doctor --json
 python3 harmony-next/scripts/hvd_manager.py create --from "<source-hvd>" --name "<new-hvd>" --hdc-port 10100
 python3 harmony-next/scripts/hvd_manager.py delete --name "<new-hvd>" --confirm-name "<new-hvd>"
+python3 harmony-next/scripts/hvd_manager.py launch-preflight --name "<hvd-name>" --trace-name "<trace-name>" --trace-helper-ready-file "<helper-ready-file>" --json
 python3 harmony-next/scripts/hvd_manager.py download-image --device-type phone --api-version 22
 ```
 
@@ -229,6 +255,7 @@ python3 harmony-next/scripts/hvd_manager.py download-image --device-type phone -
 - `doctor` 探测本机平台、HVD root、Emulator 可执行文件、SDK root、Emulator 版本和已注册 HVD；输出不包含 HVD UUID。
 - `create` 克隆一个同版本本地实例，刷新根 `<name>.ini`、实例 `config.ini`、`hardware-qemu.ini` 中的名称、路径、UUID 与可选 HDC 端口；默认不复制 `Log`。
 - `delete` 删除根 `<name>.ini`、实例目录和 `lists.json` 中的同名条目；必须传 `--confirm-name` 且值与目标名完全一致。
+- `launch-preflight` 验证 HVD、Emulator、SDK root、`traceName` 和 trace helper readiness；缺少 helper 时返回 `blocked`，满足时只输出包含 `-t <trace-name>` 的启动命令计划，不直接执行 Emulator。
 - `download-image` 目前不下载，只输出 machine-readable `blocked`。DevEco Studio 6.0.2.642 中下载镜像走 SDK Manager UI API，尚未验证稳定的非 UI 下载入口。
 
 环境适配：

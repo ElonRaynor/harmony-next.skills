@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -249,6 +250,127 @@ class HvdManagerTests(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertEqual(payload["decision"], "blocked")
         self.assertEqual(payload["operation"], "image.download")
+
+    def test_launch_preflight_blocks_without_trace_helper(self) -> None:
+        emulator = Path(self.temp_dir.name) / "Emulator"
+        emulator.write_text("#!/bin/sh\necho should-not-run\n", encoding="utf-8")
+        emulator.chmod(0o755)
+        sdk_root = Path(self.temp_dir.name) / "sdk"
+        sdk_root.mkdir()
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                "--root",
+                str(self.root),
+                "--emulator",
+                str(emulator),
+                "--sdk-root",
+                str(sdk_root),
+                "launch-preflight",
+                "--name",
+                "Source Phone",
+                "--json",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 2)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["decision"], "blocked")
+        self.assertEqual(payload["operation"], "emulator.launch.preflight")
+        self.assertIn("traceName", payload["missingConfig"])
+        self.assertIn("tracePipeHelper", payload["missingConfig"])
+        self.assertIn("请在DevEco Studio中登录华为账号", payload["knownSymptom"])
+        self.assertNotIn("emulatorCommand", payload)
+
+    def test_launch_preflight_blocks_when_hvd_directory_is_missing(self) -> None:
+        emulator = Path(self.temp_dir.name) / "Emulator"
+        emulator.write_text("#!/bin/sh\necho should-not-run\n", encoding="utf-8")
+        emulator.chmod(0o755)
+        sdk_root = Path(self.temp_dir.name) / "sdk"
+        sdk_root.mkdir()
+        ready_file = Path(self.temp_dir.name) / "trace.ready"
+        ready_file.write_text("ready\n", encoding="utf-8")
+        shutil.rmtree(self.source_dir)
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                "--root",
+                str(self.root),
+                "--emulator",
+                str(emulator),
+                "--sdk-root",
+                str(sdk_root),
+                "launch-preflight",
+                "--name",
+                "Source Phone",
+                "--trace-name",
+                "ai-emu-test",
+                "--trace-helper-ready-file",
+                str(ready_file),
+                "--json",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 2)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["decision"], "blocked")
+        self.assertIn("hvdDirectory", payload["missingConfig"])
+        self.assertNotIn("emulatorCommand", payload)
+
+    def test_launch_preflight_outputs_trace_guarded_command(self) -> None:
+        emulator = Path(self.temp_dir.name) / "Emulator"
+        emulator.write_text("#!/bin/sh\necho should-not-run\n", encoding="utf-8")
+        emulator.chmod(0o755)
+        sdk_root = Path(self.temp_dir.name) / "sdk"
+        sdk_root.mkdir()
+        ready_file = Path(self.temp_dir.name) / "trace.ready"
+        ready_file.write_text("ready\n", encoding="utf-8")
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                "--root",
+                str(self.root),
+                "--emulator",
+                str(emulator),
+                "--sdk-root",
+                str(sdk_root),
+                "launch-preflight",
+                "--name",
+                "Source Phone",
+                "--trace-name",
+                "ai-emu-test",
+                "--trace-helper-ready-file",
+                str(ready_file),
+                "--hdc-port",
+                "10123",
+                "--json",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["decision"], "allowed")
+        self.assertEqual(payload["operation"], "emulator.launch.preflight")
+        self.assertEqual(payload["traceName"], "ai-emu-test")
+        self.assertEqual(payload["emulatorCommand"][0], str(emulator.resolve()))
+        self.assertIn("-t", payload["emulatorCommand"])
+        self.assertIn("ai-emu-test", payload["emulatorCommand"])
+        self.assertIn("-hdcport", payload["emulatorCommand"])
+        self.assertIn("10123", payload["emulatorCommand"])
 
 
 if __name__ == "__main__":

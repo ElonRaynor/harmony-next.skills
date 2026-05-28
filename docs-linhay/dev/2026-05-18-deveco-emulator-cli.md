@@ -55,7 +55,14 @@
   -imageRoot '<image-root>'
 ```
 
-如果缺少该占位通道，Emulator 会在早期退出，不会完整写入实例日志。
+如果缺少该占位通道，Emulator 会在早期退出，不会完整写入实例日志。2026-05-28 追加线上 issue #13 结论：在 DevEco Studio `6.0.2` / HarmonyOS Emulator `6.0.2.200` 环境中，不完整命令还可能弹出登录/设备管理模态框：
+
+```text
+模拟器启动失败
+请在DevEco Studio中登录华为账号，并从设备管理中启动模拟器
+```
+
+这不是“先让用户登录”的默认分流，而是 CLI 启动路径缺少 trace pipe 前置条件的已知症状。后续 Agent 在执行或建议启动命令前，必须先完成 trace pipe helper preflight；helper 不可用时返回 blocked，不继续尝试 `Emulator -hvd ... -path ... -imageRoot ...`。
 
 ### trace pipe 的公开可复现边界
 
@@ -76,7 +83,7 @@
 
 ### 1.1 Runner 参数约定
 
-第一步由受控 helper 准备并持有 trace pipe，占位通道准备完成后再启动 Emulator。这里的 helper 名称是概念占位，不是仓库内已存在的可执行命令：
+第一步由受控 helper 准备并持有 trace pipe，占位通道准备完成后再启动 Emulator。受控 helper 需要提供 readiness 信号；没有 readiness 信号时，不执行 Emulator 启动。
 
 ```text
 TRACE_NAME="<trace-name>"
@@ -86,6 +93,20 @@ HVD_ROOT="$HOME/.Huawei/Emulator/deployed"
 IMAGE_ROOT="$HOME/Library/Huawei/Sdk"
 
 <受控 helper 准备并持有 TRACE_NAME 对应的本地占位通道>
+```
+
+执行启动前先跑脚本层 preflight。该命令不会启动 Emulator，只验证路径、HVD 和 trace helper readiness，并在通过后输出带 `-t` 的命令计划：
+
+```bash
+python3 harmony-next/scripts/hvd_manager.py \
+  --root "$HVD_ROOT" \
+  --emulator "$EMU_ROOT/Emulator" \
+  --sdk-root "$IMAGE_ROOT" \
+  launch-preflight \
+  --name "$HVD_NAME" \
+  --trace-name "$TRACE_NAME" \
+  --trace-helper-ready-file "<helper-ready-file>" \
+  --json
 ```
 
 保持占位通道 helper 运行，再开一个终端：
@@ -197,6 +218,7 @@ python3 harmony-next/scripts/hvd_manager.py list --json
 python3 harmony-next/scripts/hvd_manager.py doctor --json
 python3 harmony-next/scripts/hvd_manager.py create --from "<source-hvd>" --name "<new-hvd>" --hdc-port 10100
 python3 harmony-next/scripts/hvd_manager.py delete --name "<new-hvd>" --confirm-name "<new-hvd>"
+python3 harmony-next/scripts/hvd_manager.py launch-preflight --name "<hvd-name>" --trace-name "<trace-name>" --trace-helper-ready-file "<helper-ready-file>" --json
 python3 harmony-next/scripts/hvd_manager.py download-image --device-type phone --api-version 22
 ```
 
@@ -206,6 +228,7 @@ python3 harmony-next/scripts/hvd_manager.py download-image --device-type phone -
 - `doctor` 探测本机平台、HVD root、Emulator 可执行文件、SDK root、Emulator 版本和 HVD 列表；输出不包含 HVD UUID。
 - `create` 以现有本地实例为源克隆目录，刷新名称、路径、UUID、`hardware-qemu.ini` 中的 HVD 名称以及可选 HDC 端口；默认不复制旧日志。
 - `delete` 必须传入完全匹配的 `--confirm-name`，只删除 HVD root 内目标实例目录、根 `.ini` 和 `lists.json` 同名条目。
+- `launch-preflight` 验证启动前置条件，不创建 trace pipe、不启动 Emulator；缺少 `traceName` 或 helper readiness 文件时返回 `blocked`，满足时输出含 `-t <trace-name>` 的命令计划。
 - `download-image` 暂不执行下载，只返回 machine-readable `blocked`，用于明确区分“已有命令入口”和“仍需 SDK Manager bridge 的能力”。
 - 环境适配：`--root` / `HARMONY_HVD_ROOT` 指定 HVD root；`--emulator` / `HARMONY_EMULATOR` 指定 Emulator；`--sdk-root` / `DEVECO_SDK_HOME` 指定 SDK root。未指定时脚本会按当前平台探测常见 DevEco Studio 安装位置。
 
