@@ -767,7 +767,7 @@ def wait_for_runtime_stability(
         return {"stable": True, "seconds": 0}
     deadline = time.monotonic() + seconds
     last_hdc = snapshot_hdc(hdc) if target else {"ok": False, "error": "target unavailable"}
-    while time.monotonic() < deadline:
+    while True:
         exit_code = process.poll()
         if exit_code is not None:
             return {"stable": False, "seconds": seconds, "reason": "process-exited", "processExitCode": exit_code, "hdcSnapshot": last_hdc}
@@ -776,7 +776,10 @@ def wait_for_runtime_stability(
             output = f"{last_hdc.get('stdout', '')}\n{last_hdc.get('stderr', '')}"
             if not parse_connected_target(output, target):
                 return {"stable": False, "seconds": seconds, "reason": "hdc-disconnected", "hdcSnapshot": last_hdc}
-        time.sleep(1)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        time.sleep(min(1, remaining))
     return {"stable": True, "seconds": seconds, "hdcSnapshot": last_hdc}
 
 
