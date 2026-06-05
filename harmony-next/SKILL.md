@@ -70,7 +70,8 @@ Boundaries:
 
 - `commandline_tools_manager.py` may download only a direct archive URL; a download center page URL is a login-gated page, not an archive.
 - `hvd_manager.py launch-preflight` prints a guarded Emulator command plan when an external trace helper is already ready.
-- `hvd_manager.py launch` creates a startup trace socket, detaches Emulator and a trace holder, starts Emulator with `-t <trace-name>`, and waits for HDC/boot/stability unless `--no-wait-target` is passed.
+- `hvd_manager.py launch` currently creates a startup trace socket, detaches Emulator and a trace holder, starts Emulator with `-t <trace-name>`, and waits for HDC/boot/stability unless `--no-wait-target` is passed.
+- Lifecycle direction: prefer an attached terminal-scoped launch mode for future CLI work, where the foreground runner owns the trace socket, waits for readiness, and calls `Emulator -stop <hvd-name> -path <hvd-root>` when the terminal session ends; keep detached mode only as an explicit compatibility path.
 - `hvd_manager.py download-image` reports HVD image download as machine-readable `blocked`; current verified path is DevEco Studio SDK Manager UI, not a stable non-UI CLI.
 - For cross-machine support, prefer `doctor --json` output over hard-coded macOS paths in answers and docs.
 
@@ -124,15 +125,16 @@ HVD manager command map:
 | `doctor --json` | Probe HVD root, Emulator, build SDK root, emulator image root, HDC, Emulator version, and local HVDs | `issues`, `recommendations`, `hvdRoot`, `emulator`, `sdkRoot`, `imageRoot`, `hdc` |
 | `list --json` | List registered HVDs without exposing UUIDs | `name`, `device_type`, `api_version`, `hdc_port`, `image_sub_path`, `exists` |
 | `launch-preflight --name <hvd> --image-root <dir> --trace-name <name> --trace-helper-ready-file <file> --json` | Validate trace helper readiness and image root without starting Emulator | `decision`, `missingConfig`, `emulatorCommand` |
-| `launch --name <hvd> --image-root <dir> --trace-name <name> --json` | Create trace socket, detach Emulator and trace holder, then wait for HDC, boot, and stability | `traceHolder`, `hdcWait`, `bootWait`, `stabilityWait`, `logPath` |
+| `launch --name <hvd> --image-root <dir> --trace-name <name> --json` | Current implementation: create trace socket, detach Emulator and trace holder, then wait for HDC, boot, and stability | `traceHolder`, `hdcWait`, `bootWait`, `stabilityWait`, `logPath` |
 
 HVD launch rules:
 
 - `--sdk-root` / `DEVECO_SDK_HOME` is the DevEco build SDK root. Do not treat it as the emulator image root.
 - `--image-root` / `HARMONY_EMULATOR_IMAGE_ROOT` is the emulator image root. On macOS this is commonly `~/Library/Huawei/Sdk`.
 - `launch` and `launch-preflight` validate `<image-root>/<imageSubPath>` from HVD `config.ini`; failures return `missingConfig=["imageRootSystemImage"]`.
-- `launch` defaults: trace holder stays alive for 1800 seconds, and the post-boot stability check runs for 60 seconds.
-- If another process needs to install HAPs, deep link, screenshot, or dump layout after `launch`, use the returned `hdcWait.target` and keep the trace holder alive long enough with `--trace-hold-seconds`.
+- Current `launch` defaults: trace holder stays alive for 1800 seconds, and the post-boot stability check runs for 60 seconds.
+- If another process needs to install HAPs, deep link, screenshot, or dump layout after current detached `launch`, use the returned `hdcWait.target` and keep the trace holder alive long enough with `--trace-hold-seconds`.
+- Attached lifecycle checklist: the runner must stay foreground, keep the trace socket in-process, trap `SIGINT` / `SIGTERM` / `SIGHUP`, call `Emulator -stop`, close the socket, remove only its own trace path, and verify `hdc list targets -v` no longer reports the selected target.
 - Failure/timeout diagnostics should include `logPath`, `processExitCode`, `hvdRuntime`, `hdcSnapshot`, `hdcWait`, `bootWait`, and `stabilityWait` when present.
 
 ## DevEco Studio Private Interfaces

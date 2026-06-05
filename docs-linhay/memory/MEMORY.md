@@ -16,4 +16,4 @@
 - 2026-05-18：本地 HVD 创建没有稳定公开 create CLI；可行方向是基于同版本可运行实例同步必要元数据与运行期数据，但创建、删除、清理、改配置都属于确认档操作。
 - 2026-05-18：多实例通过启动参数显式分配 HDC 端口；脚本只操作 `Connected` target，多个 `Connected` 且未显式指定 target 时必须停止并让上层选择。
 - 2026-05-18：非公开或半公开能力只记录命令级结论、用途、验证结果和风险等级，不记录来源路径、获取方法、内部符号、文件定位信息或业务标识。
-- 2026-06-05：`hvd_manager.py launch-preflight` / `launch` 区分 DevEco build SDK root 与 emulator image root，按 HVD `imageSubPath` 校验系统镜像目录；`launch` 失败或超时时返回日志路径、进程退出码、HVD runtime、HDC 快照、boot 检查和稳定性检查。真实本机验证确认 Emulator 进程和 trace holder 都需要 detach，否则调用方退出后 HDC target 会消失。
+- 2026-06-05：`hvd_manager.py launch-preflight` / `launch` 区分 DevEco build SDK root 与 emulator image root，按 HVD `imageSubPath` 校验系统镜像目录；`launch` 失败或超时时返回日志路径、进程退出码、HVD runtime、HDC 快照、boot 检查和稳定性检查。真实本机验证确认当前 detached 实现里 Emulator 进程和 trace holder 都需要 detach，否则调用方退出后 HDC target 会消失；后续文档核查表已补充 attached 终端托管模式，要求终端结束时通过 `Emulator -stop` 回收 HVD。临时 Terminal foreground runner 已验证 attached 模型可行，但仓库脚本尚未实现 attached 参数。

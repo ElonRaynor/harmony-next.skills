@@ -230,7 +230,7 @@ python3 harmony-next/scripts/hvd_manager.py download-image --device-type phone -
 - `create` 以现有本地实例为源克隆目录，刷新名称、路径、UUID、`hardware-qemu.ini` 中的 HVD 名称以及可选 HDC 端口；默认不复制旧日志。
 - `delete` 必须传入完全匹配的 `--confirm-name`，只删除 HVD root 内目标实例目录、根 `.ini` 和 `lists.json` 同名条目。
 - `launch-preflight` 验证启动前置条件，不创建 trace pipe、不启动 Emulator；缺少 `traceName`、helper readiness 文件或 HVD `imageSubPath` 对应系统镜像时返回 `blocked`，满足时输出含 `-t <trace-name>` 的命令计划。
-- `launch` 创建启动期 trace socket，detach Emulator 进程与 trace holder 后执行含 `-t <trace-name>` 的 Emulator 命令；缺少 HVD、Emulator、image root、trace name 或 HDC 时返回 machine-readable `blocked`。启动失败、trace 超时或 HDC/boot/稳定性检查超时时输出 `logPath`、`processExitCode`、`hvdRuntime`、`hdcSnapshot`、`hdcWait`、`bootWait` 和 `stabilityWait` 诊断。
+- 当前 `launch` 创建启动期 trace socket，detach Emulator 进程与 trace holder 后执行含 `-t <trace-name>` 的 Emulator 命令；缺少 HVD、Emulator、image root、trace name 或 HDC 时返回 machine-readable `blocked`。启动失败、trace 超时或 HDC/boot/稳定性检查超时时输出 `logPath`、`processExitCode`、`hvdRuntime`、`hdcSnapshot`、`hdcWait`、`bootWait` 和 `stabilityWait` 诊断。后续生命周期调整应新增 attached 终端托管模式，让 runner 前台持有 trace socket，并在终端退出时调用 `Emulator -stop` 清理模拟器。
 - `download-image` 暂不执行下载，只返回 machine-readable `blocked`，用于明确区分“已有命令入口”和“仍需 SDK Manager bridge 的能力”。
 - 环境适配：`--root` / `HARMONY_HVD_ROOT` 指定 HVD root；`--emulator` / `HARMONY_EMULATOR` 指定 Emulator；`--image-root` / `HARMONY_EMULATOR_IMAGE_ROOT` 指定模拟器镜像根；`--hdc` / `HARMONY_HDC` 指定 HDC；`--sdk-root` / `DEVECO_SDK_HOME` 只表示 DevEco build SDK root。macOS 常见拆分是 build SDK root 为 `/Applications/DevEco-Studio.app/Contents/sdk`，模拟器镜像根为 `$HOME/Library/Huawei/Sdk`。
 
@@ -1379,7 +1379,17 @@ EMULATOR="/Applications/DevEco-Studio.app/Contents/tools/emulator/Emulator"
 "$EMULATOR" -hvd "$hvd_name" -path "$hvd_root" -imageRoot "$image_root" -t "$trace_name" -hdcport "$hdc_port"
 ```
 
-启动前必须由 runner 准备并持有同名 trace pipe helper。启动命令本身不代表 boot 完成，必须后接 `wait-target`、`bootevent.boot.completed` 和稳定性检查；若进程静默退出、调用进程退出后 HDC target 消失或 trace 超时，runner 必须返回 stdout/stderr 日志路径、进程退出码、`Emulator -list -details` 摘要和 `hdc list targets -v` 快照。仓库脚本的 `launch` 默认让 trace holder 保活 1800 秒，并做 60 秒稳定性检查。
+启动前必须由 runner 准备并持有同名 trace pipe helper。启动命令本身不代表 boot 完成，必须后接 `wait-target`、`bootevent.boot.completed` 和稳定性检查；若进程静默退出、调用进程退出后 HDC target 消失或 trace 超时，runner 必须返回 stdout/stderr 日志路径、进程退出码、`Emulator -list -details` 摘要和 `hdc list targets -v` 快照。仓库脚本当前 `launch` 默认让 trace holder 保活 1800 秒，并做 60 秒稳定性检查。下一步应把默认自动化入口调整为 attached：runner 保持前台、同进程持有 trace socket，并在终端结束时执行 `Emulator -stop`。
+
+### lifecycle 核查表
+
+1. attached 模式启动后，父 runner 不应立即退出；终端会话是模拟器生命周期边界。
+2. attached 模式的 trace socket 由父 runner 或同进程 worker 持有，不能依赖 detached trace holder。
+3. attached 模式必须处理 `SIGINT`、`SIGTERM`、`SIGHUP` 和正常退出，统一进入 cleanup。
+4. cleanup 优先调用 `Emulator -stop "<hvd-name>" -path "<hvd-root>"`，再关闭 socket、删除本轮 trace path。
+5. cleanup 只处理当前 `run_id`、`trace-name` 和 HVD 名称绑定的资源，不做通配进程清理。
+6. cleanup 后用 `hdc list targets -v` 确认目标消失；失败时记录 `cleanup_failed`、`Emulator -list -details` 摘要和 HDC 快照。
+7. detached 模式保留为兼容能力，但必须显式声明调用方负责停止模拟器和管理 trace holder 时长。
 
 ### select-target
 
@@ -1480,10 +1490,14 @@ trace pipe helper 的清理必须由创建它的 runner 执行；清理前确认
 3. `hdc list targets` 为空：
    - 等待日志出现 `Guest OS Boot Completed!!`。
    - 检查是否有旧 hdc server 或旧模拟器实例占用连接。
-4. 模拟器窗口不可见：
+4. 终端结束后模拟器仍然存活：
+   - 检查本次启动是否仍是 detached 行为。
+   - 检查 runner 是否实现 attached cleanup，并确认捕获了 `SIGINT`、`SIGTERM`、`SIGHUP`。
+   - 执行 `Emulator -stop "<hvd-name>" -path "<hvd-root>"`，再用 `hdc list targets -v` 验证 target 消失。
+5. 模拟器窗口不可见：
    - 用 `osascript` 查询窗口位置。
    - 将窗口移动到 `{120, 120}` 后再截图确认。
-5. AI 桌面插件无法识别 `Emulator`：
+6. AI 桌面插件无法识别 `Emulator`：
    - 优先使用 `hdc -t <target> shell uitest dumpLayout` 与 `uiInput`。
    - 桌面插件只作为截图或窗口移动的补充方案。
 
@@ -1508,4 +1522,4 @@ trace pipe helper 的清理必须由创建它的 runner 执行；清理前确认
    - 坐标点击
    - 文本输入
    - Home/Back
-3. 若要长期运行，trace pipe helper 应作为受控后台进程管理，具备 `run_id` 绑定、健康检查和清理能力。
+3. 将启动脚本拆成 attached 默认模式与 detached 兼容模式；attached 模式由前台 runner 绑定终端生命周期并负责停止 HVD，detached 模式才需要受控后台 trace holder、`run_id` 绑定、健康检查和清理能力。

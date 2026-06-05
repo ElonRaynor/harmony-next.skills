@@ -200,6 +200,10 @@ class SkillMetadataTests(unittest.TestCase):
             "traceBytesRead",
             "emulator.launch",
             "download-image",
+            "## 生命周期模型",
+            "attached 生命周期核查表",
+            "Emulator -stop",
+            "detached",
         ]
 
         for fragment in required_skill_fragments:

@@ -204,7 +204,7 @@ python3 harmony-next/scripts/hvd_manager.py \
 
 若 helper 不可用，期望输出 `decision=blocked`、`missingConfig=["tracePipeHelper"]`，并包含上述已知 modal 症状。
 
-需要由仓库脚本直接执行启动时，使用 `launch`。该命令会创建本轮启动用的有界 trace socket，启动 Emulator，并在默认路径下等待 HDC target；只想验证启动进程与 trace socket 连接时传 `--no-wait-target`：
+需要由仓库脚本直接执行启动时，使用 `launch`。当前实现会创建本轮启动用的有界 trace socket，detach Emulator 与 trace holder，启动 Emulator，并在默认路径下等待 HDC target；只想验证启动进程与 trace socket 连接时传 `--no-wait-target`：
 
 ```bash
 python3 harmony-next/scripts/hvd_manager.py \
@@ -219,6 +219,27 @@ python3 harmony-next/scripts/hvd_manager.py \
 ```
 
 `launch` 输出 `decision=allowed`、`operation=emulator.launch`、`result=started`、`socketConnected=true`、`traceBytesRead` 和实际 `emulatorCommand`。缺少 HVD、Emulator、image root 或 trace name 时返回 machine-readable `blocked`，不要退回到裸 `Emulator -hvd ... -path ... -imageRoot ...`。
+
+### 生命周期模型
+
+后续 CLI 应区分两种启动生命周期：
+
+| 模式 | 语义 | 清理责任 |
+| --- | --- | --- |
+| `attached` | 一个前台终端托管一个模拟器；终端活着，模拟器活着 | runner 捕获退出信号，调用 `Emulator -stop <hvd-name> -path <hvd-root>`，关闭 trace socket，并验证 HDC target 消失 |
+| `detached` | 启动命令返回后模拟器继续运行，用于兼容已有后续自动化步骤 | 调用方必须显式停止 HVD，并持有足够长的 trace holder |
+
+attached 模式是推荐方向，因为它更接近 Android Emulator 的终端会话模型，也能降低孤儿模拟器和悬空 trace holder 的概率。实现 attached 前不要把不存在的 `--lifecycle` 参数写入对外命令示例；当前脚本仍按 detached 行为描述。
+
+attached 生命周期核查表：
+
+1. 父 runner 保持前台运行，不能在启动成功后立即退出。
+2. trace socket 由父 runner 或同一进程内 worker 持有，不再创建脱离终端的 trace holder。
+3. `SIGINT`、`SIGTERM`、`SIGHUP` 和正常退出路径都进入同一个 cleanup。
+4. cleanup 优先执行 `Emulator -stop "<hvd-name>" -path "<hvd-root>"`，再清理本轮创建的 trace path。
+5. cleanup 只删除当前 `run_id` / `trace-name` 绑定的资源，不清理未知进程或固定路径。
+6. 退出前采集裁剪后的 `Emulator -list -details` 与 `hdc list targets -v` 摘要，用于确认目标停止或记录清理失败。
+7. detached 仍作为显式兼容模式保留，文档必须说明调用方负责后续停止。
 
 使用模板：
 
@@ -273,7 +294,7 @@ python3 harmony-next/scripts/hvd_manager.py download-image --device-type phone -
 - `create` 克隆一个同版本本地实例，刷新根 `<name>.ini`、实例 `config.ini`、`hardware-qemu.ini` 中的名称、路径、UUID 与可选 HDC 端口；默认不复制 `Log`。
 - `delete` 删除根 `<name>.ini`、实例目录和 `lists.json` 中的同名条目；必须传 `--confirm-name` 且值与目标名完全一致。
 - `launch-preflight` 验证 HVD、Emulator、SDK root、`traceName` 和 trace helper readiness；缺少 helper 时返回 `blocked`，满足时只输出包含 `-t <trace-name>` 的启动命令计划，不直接执行 Emulator。
-- `launch` 创建 `/tmp/<trace-name>` 启动期 trace socket，执行带 `-t <trace-name>` 的 Emulator 命令，并可等待 `hdc list targets -v` 中出现 `Connected`；多实例必须使用不同 trace name 和 HDC 端口。
+- 当前 `launch` 创建 `/tmp/<trace-name>` 启动期 trace socket，执行带 `-t <trace-name>` 的 Emulator 命令，并可等待 `hdc list targets -v` 中出现 `Connected`；多实例必须使用不同 trace name 和 HDC 端口。后续新增生命周期参数时，attached 应成为推荐路径，detached 应保留为显式兼容路径。
 - `download-image` 目前不下载，只输出 machine-readable `blocked`。DevEco Studio 6.0.2.642 中下载镜像走 SDK Manager UI API，尚未验证稳定的非 UI 下载入口。
 
 环境适配：
