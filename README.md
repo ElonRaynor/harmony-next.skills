@@ -107,7 +107,9 @@ SKILL.md
 - 每次执行前重新验证当前 DevEco / Emulator / SDK 版本和命令能力。
 - 用户默认拥有完整执行权限；长时间自动化可用 `HARMONY_NEXT_AUTOMATION_POLICY`、`--policy` 或 `.harmony-next-policy.json` 描述执行模式、产物目录和脱敏契约。
 - 真实截图、layout、日志包、安装卸载、端口转发、HVD 创建/删除等动作按非交互流程执行；缺少 target、artifact 目录、脱敏策略或 timeout 时才返回 machine-readable blocked 结果。
-- 本仓库提供 `python3 harmony-next/scripts/hvd_manager.py`：支持 `doctor` 环境探测、`list`、`create --from <source> --name <new>`、`delete --name <name> --confirm-name <name>`、`launch-preflight` 和 `launch --name <hvd> --image-root <dir> --trace-name <name>`；可用 `--root` / `HARMONY_HVD_ROOT`、`--emulator` / `HARMONY_EMULATOR`、`--sdk-root` / `DEVECO_SDK_HOME` 适配不同机器；`download-image` 当前只返回 blocked，因为镜像下载仅确认到 IDE SDK Manager UI 入口。
+- 本仓库提供 `python3 harmony-next/scripts/hvd_manager.py`：支持 `doctor` 环境探测、`list`、`create`、`delete`、`launch-preflight` 和 `launch`。
+- HVD 启动适配：`--root` / `HARMONY_HVD_ROOT` 指定 HVD root，`--emulator` / `HARMONY_EMULATOR` 指定 Emulator，`--image-root` / `HARMONY_EMULATOR_IMAGE_ROOT` 指定模拟器镜像根，`--hdc` / `HARMONY_HDC` 指定 HDC。`--sdk-root` / `DEVECO_SDK_HOME` 只表示 DevEco build SDK root，不等同于模拟器镜像根。
+- macOS 常见镜像根是 `~/Library/Huawei/Sdk`；脚本会用 HVD `imageSubPath` 校验系统镜像。`launch` 会 detach Emulator 与 trace holder，等待 HDC、boot 和稳定性检查；`download-image` 当前只返回 blocked，因为镜像下载仅确认到 IDE SDK Manager UI 入口。
 - 模拟器抓包与代理诊断：Charles、mitmproxy、Proxyman 等抓包工具都需要确认模拟器 NAT、宿主机可达地址和应用级代理。常见调试入口是让目标应用显式走 `10.0.2.2:9090`，例如 `setAppHttpProxy` 配合 `usingProxy: true`；Mac 侧中转脚本不能被描述为通用透明抓包方案。
 
 ### DevEco Studio IDE 私有接口
@@ -186,7 +188,7 @@ ln -s "$(pwd)/harmony-next.skills/harmony-next" "$HOME/.agents/skills/harmony-ne
 | 版本 | 重点变化 |
 | --- | --- |
 | `v1.3.7` | 新增可复制 HarmonyOS NEXT Empty Ability 最小测试工程模板：`references/templates/empty-ability-app`；默认 `com.example.emptyability` / `EntryAbility` / `5.0.0(12)`，补充 SDK 版本适配验证（含 `6.0.2(22)` / `DEVECO_SDK_HOME=/Applications/DevEco-Studio.app/Contents/sdk`）、`ohpm install`、`hvigorw --mode module`、HDC 启动、`uitest dumpLayout` 和 `uitest uiInput click` smoke 能力 |
-| `Unreleased` | DevEco Emulator CLI 启动补充 trace socket 守护入口：`hvd_manager.py launch-preflight` 只输出带 `-t <trace-name>` 的命令计划，`hvd_manager.py launch` 创建有界 trace socket 并启动 Emulator；缺少 trace、HVD、Emulator 或 image root 时返回 machine-readable blocked |
+| `Unreleased` | DevEco Emulator CLI 启动补充 trace socket 守护入口：`hvd_manager.py launch-preflight` 只输出带 `-t <trace-name>` 的命令计划，`hvd_manager.py launch` 创建 trace socket、detach Emulator 与 trace holder 后启动；启动前按 HVD `imageSubPath` 校验 emulator image root，区分 build SDK root 与 `~/Library/Huawei/Sdk`；启动失败/超时时返回退出码、日志路径、HDC 快照、HVD 运行态和稳定性检查等 machine-readable 诊断 |
 | `v1.3.6` | DevEco 模拟器 playbook 新增非交互自动化策略：用户默认拥有完整权限，`policy` 仅表示执行模式；支持 `readonly/evidence/automation/diagnostic/break-glass`、artifact 目录、脱敏元数据与 machine-readable blocked 输出 |
 | `v1.3.5` | 新增 DevEco Studio IDE 私有未公开能力参考：CodeGenie 本地 RAG/MCP/LanceDB、`devecostudio://`、Previewer、ArkUI Inspector、Profiler、Doctor、UxTestService、插件入口索引与隐私风险门禁；更新 README 与触发词 |
 | `v1.3.4` | 新增 DevEco Studio 模拟器私有未公开自动化参考：免 IDE 启动、`hdc + uitest`、HVD、多实例、风险门禁、超时与脱敏边界；更新 `SKILL.md` 触发词与任务索引 |

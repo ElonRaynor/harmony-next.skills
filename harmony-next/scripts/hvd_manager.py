@@ -10,6 +10,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 from dataclasses import asdict, dataclass
@@ -20,6 +21,8 @@ DEFAULT_HVD_ROOT = Path.home() / ".Huawei" / "Emulator" / "deployed"
 HVD_ROOT_ENV_KEYS = ["HARMONY_HVD_ROOT", "DEVECO_HVD_ROOT", "HVD_ROOT"]
 EMULATOR_ENV_KEYS = ["HARMONY_EMULATOR", "DEVECO_EMULATOR", "EMULATOR"]
 SDK_ROOT_ENV_KEYS = ["DEVECO_SDK_HOME", "HOS_SDK_HOME", "HARMONY_SDK_HOME"]
+IMAGE_ROOT_ENV_KEYS = ["HARMONY_EMULATOR_IMAGE_ROOT", "DEVECO_IMAGE_ROOT", "HARMONY_IMAGE_ROOT"]
+HDC_ENV_KEYS = ["HARMONY_HDC", "DEVECO_HDC", "HDC"]
 NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}$")
 TRACE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 LOGIN_GATED_MODAL_SYMPTOM = "模拟器启动失败 / 请在DevEco Studio中登录华为账号，并从设备管理中启动模拟器"
@@ -54,6 +57,7 @@ class HvdInfo:
     api_version: str | None = None
     uuid: str | None = None
     hdc_port: str | None = None
+    image_sub_path: str | None = None
     exists: bool = True
 
     def to_json(self) -> dict[str, object]:
@@ -154,6 +158,41 @@ def candidate_sdk_roots() -> list[tuple[Path, str]]:
     return dedupe_candidates(candidates)
 
 
+def candidate_image_roots() -> list[tuple[Path, str]]:
+    env_path, env_key = first_env_path(IMAGE_ROOT_ENV_KEYS)
+    candidates: list[tuple[Path, str]] = []
+    if env_path and env_key:
+        candidates.append((env_path, f"env:{env_key}"))
+
+    system = platform.system()
+    if system == "Darwin":
+        candidates.append((Path.home() / "Library" / "Huawei" / "Sdk", "macos:user-emulator-images"))
+    elif system == "Windows":
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        if local_app_data:
+            candidates.append((Path(local_app_data) / "Huawei" / "Sdk", "windows:LOCALAPPDATA"))
+    else:
+        candidates.append((Path.home() / ".Huawei" / "Sdk", "linux:user-emulator-images"))
+    return dedupe_candidates(candidates)
+
+
+def candidate_hdcs(sdk_root: Path | None = None) -> list[tuple[Path, str]]:
+    env_path, env_key = first_env_path(HDC_ENV_KEYS)
+    candidates: list[tuple[Path, str]] = []
+    if env_path and env_key:
+        candidates.append((env_path, f"env:{env_key}"))
+    if sdk_root:
+        candidates.append((sdk_root / "default" / "openharmony" / "toolchains" / "hdc", "arg:sdk-root"))
+
+    for root, source in candidate_sdk_roots():
+        candidates.append((root / "default" / "openharmony" / "toolchains" / "hdc", source))
+
+    resolved = shutil.which("hdc")
+    if resolved:
+        candidates.append((Path(resolved), "path:hdc"))
+    return dedupe_candidates(candidates)
+
+
 def dedupe_candidates(candidates: list[tuple[Path, str]]) -> list[tuple[Path, str]]:
     seen: set[str] = set()
     deduped: list[tuple[Path, str]] = []
@@ -202,6 +241,8 @@ def run_doctor(root: Path | None = None, emulator: Path | None = None, sdk_root:
     root_probe = probe_first_existing(root_candidates)
     emulator_probe = probe_first_existing(emulator_candidates, executable=True)
     sdk_probe = probe_first_existing(sdk_candidates)
+    image_root_probe = probe_first_existing(candidate_image_roots())
+    hdc_probe = probe_first_existing(candidate_hdcs(sdk_root), executable=True)
 
     issues: list[str] = []
     recommendations: list[str] = []
@@ -234,6 +275,8 @@ def run_doctor(root: Path | None = None, emulator: Path | None = None, sdk_root:
         "hvdRoot": root_probe.to_json(),
         "emulator": emulator_probe.to_json(),
         "sdkRoot": sdk_probe.to_json(),
+        "imageRoot": image_root_probe.to_json(),
+        "hdc": hdc_probe.to_json(),
         "hvdCount": len(hvds),
         "hvds": [hvd.to_json() for hvd in hvds],
         "issues": issues,
@@ -332,6 +375,7 @@ def list_hvds(root: Path = DEFAULT_HVD_ROOT) -> list[HvdInfo]:
                 api_version=config.get("os.apiVersion"),
                 uuid=config.get("uuid"),
                 hdc_port=config.get("hw.hdc.port"),
+                image_sub_path=config.get("imageSubPath"),
                 exists=hvd_path.exists(),
             )
         )
@@ -546,11 +590,201 @@ def build_emulator_command(
     return command
 
 
+def resolve_image_root(args: argparse.Namespace, sdk_root: Path | None) -> PathProbe:
+    arg_image_root = getattr(args, "image_root", None)
+    if arg_image_root:
+        return probe_first_existing([(arg_image_root, "arg:image-root")])
+
+    image_probe = probe_first_existing(candidate_image_roots())
+    if image_probe.exists:
+        return image_probe
+
+    if sdk_root:
+        return probe_first_existing([(sdk_root, "arg:sdk-root")])
+    return image_probe
+
+
+def validate_image_root_for_hvd(image_root: Path | None, hvd: HvdInfo) -> tuple[list[str], list[str]]:
+    missing_config: list[str] = []
+    recommendations: list[str] = []
+
+    if not image_root or not image_root.expanduser().exists():
+        missing_config.append("imageRoot")
+        recommendations.append(
+            "Pass --image-root or set HARMONY_EMULATOR_IMAGE_ROOT to the emulator image root, for example ~/Library/Huawei/Sdk on macOS."
+        )
+        return missing_config, recommendations
+
+    if hvd.image_sub_path:
+        image_sub_path = hvd.image_sub_path.strip().lstrip("/\\")
+        system_image_path = image_root.expanduser() / image_sub_path
+        if not system_image_path.exists():
+            missing_config.append("imageRootSystemImage")
+            recommendations.append(
+                "Use the emulator image root that contains "
+                f"{image_sub_path}; on macOS this is often ~/Library/Huawei/Sdk, not /Applications/DevEco-Studio.app/Contents/sdk."
+            )
+
+    return missing_config, recommendations
+
+
+def create_artifact_dir(trace_name: str, artifact_dir: Path | None) -> Path:
+    if artifact_dir:
+        path = artifact_dir.expanduser()
+    else:
+        safe_trace = re.sub(r"[^A-Za-z0-9_.-]+", "-", trace_name)
+        path = Path(tempfile.gettempdir()) / f"harmony-hvd-launch-{safe_trace}"
+    path.mkdir(parents=True, exist_ok=True)
+    return path.resolve()
+
+
+def read_text_snippet(path: Path, limit: int = 4000) -> str:
+    if not path.exists():
+        return ""
+    data = path.read_bytes()
+    if len(data) > limit:
+        data = data[-limit:]
+    return data.decode("utf-8", errors="replace")
+
+
+def run_short_command(command: list[str], timeout: float = 5) -> dict[str, object]:
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=timeout, check=False)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return {"ok": False, "error": str(error), "command": command}
+    return {
+        "ok": result.returncode == 0,
+        "exitCode": result.returncode,
+        "stdout": (result.stdout or "")[:4000],
+        "stderr": (result.stderr or "")[:4000],
+        "command": command,
+    }
+
+
+def probe_emulator_runtime(emulator: Path | None, hvd_name: str) -> dict[str, object]:
+    if emulator is None:
+        return {"ok": False, "error": "emulator path unavailable"}
+    result = run_short_command([str(emulator), "-list", "-details"], timeout=10)
+    output = f"{result.get('stdout', '')}\n{result.get('stderr', '')}"
+    details: dict[str, object] = {"ok": result.get("ok", False), "exitCode": result.get("exitCode"), "output": output[:4000]}
+    name_index = output.find(hvd_name)
+    if name_index >= 0:
+        window = output[max(0, name_index - 500) : name_index + 1000]
+        running_match = re.search(r"isRunning['\"]?\s*[:=]\s*['\"]?(true|false)", window, re.IGNORECASE)
+        port_match = re.search(r"hw\.hdc\.port['\"]?\s*[:=]\s*['\"]?([A-Za-z0-9_.:-]+)", window)
+        if running_match:
+            details["hvdIsRunning"] = running_match.group(1).lower() == "true"
+        if port_match:
+            details["hvdHdcPort"] = port_match.group(1)
+    return details
+
+
+def snapshot_hdc(hdc: Path | None) -> dict[str, object]:
+    if hdc is None:
+        return {"ok": False, "error": "hdc path unavailable"}
+    return run_short_command([str(hdc), "list", "targets", "-v"], timeout=5)
+
+
+def parse_connected_target(output: str, target_hint: str | None = None) -> str | None:
+    for line in output.splitlines():
+        if "Connected" not in line:
+            continue
+        target = line.split()[0] if line.split() else ""
+        if target_hint and target_hint not in target:
+            continue
+        return target
+    return None
+
+
+def start_trace_holder(connection: socket.socket, emulator_pid: int, hold_seconds: float, log_path: Path) -> dict[str, object] | None:
+    if hold_seconds <= 0:
+        return None
+    helper_code = r"""
+import os
+import socket
+import sys
+import time
+import traceback
+
+fd = int(sys.argv[1])
+emulator_pid = int(sys.argv[2])
+hold_seconds = float(sys.argv[3])
+log_path = sys.argv[4]
+deadline = time.monotonic() + hold_seconds
+bytes_read = 0
+reason = "starting"
+try:
+    with open(log_path, "w", encoding="utf-8") as log:
+        log.write("reason=started\nbytesRead=0\n")
+    sock = socket.socket(fileno=fd)
+    sock.settimeout(1.0)
+    reason = "timeout"
+    try:
+        while time.monotonic() < deadline:
+            try:
+                os.kill(emulator_pid, 0)
+            except OSError:
+                reason = "emulator-exited"
+                break
+            try:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    reason = "trace-closed"
+                    break
+                bytes_read += len(chunk)
+            except socket.timeout:
+                continue
+    finally:
+        sock.close()
+except BaseException:
+    reason = "helper-error"
+    details = traceback.format_exc()
+finally:
+    with open(log_path, "w", encoding="utf-8") as log:
+        log.write(f"reason={reason}\nbytesRead={bytes_read}\n")
+        if reason == "helper-error":
+            log.write(details)
+"""
+    helper_log = log_path.parent / "trace-holder.log"
+    process = subprocess.Popen(
+        [sys.executable, "-c", helper_code, str(connection.fileno()), str(emulator_pid), str(hold_seconds), str(helper_log)],
+        pass_fds=(connection.fileno(),),
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    return {"pid": process.pid, "holdSeconds": hold_seconds, "logPath": str(helper_log)}
+
+
+def wait_for_runtime_stability(
+    seconds: float,
+    process: subprocess.Popen[str],
+    hdc: Path | None,
+    target: str | None,
+) -> dict[str, object]:
+    if seconds <= 0:
+        return {"stable": True, "seconds": 0}
+    deadline = time.monotonic() + seconds
+    last_hdc = snapshot_hdc(hdc) if target else {"ok": False, "error": "target unavailable"}
+    while time.monotonic() < deadline:
+        exit_code = process.poll()
+        if exit_code is not None:
+            return {"stable": False, "seconds": seconds, "reason": "process-exited", "processExitCode": exit_code, "hdcSnapshot": last_hdc}
+        if target and hdc:
+            last_hdc = snapshot_hdc(hdc)
+            output = f"{last_hdc.get('stdout', '')}\n{last_hdc.get('stderr', '')}"
+            if not parse_connected_target(output, target):
+                return {"stable": False, "seconds": seconds, "reason": "hdc-disconnected", "hdcSnapshot": last_hdc}
+        time.sleep(1)
+    return {"stable": True, "seconds": seconds, "hdcSnapshot": last_hdc}
+
+
 def run_launch_preflight(args: argparse.Namespace, root: Path, emulator: Path | None, sdk_root: Path | None) -> int:
     root = ensure_root(root)
     hvd = find_hvd(root, args.name)
     emulator_probe = probe_first_existing([(emulator, "arg:emulator")] if emulator else candidate_emulators(), executable=True)
-    sdk_probe = probe_first_existing([(sdk_root, "arg:sdk-root")] if sdk_root else candidate_sdk_roots())
+    image_root_probe = resolve_image_root(args, sdk_root)
 
     missing_config: list[str] = []
     issues: list[str] = []
@@ -564,9 +798,9 @@ def run_launch_preflight(args: argparse.Namespace, root: Path, emulator: Path | 
         missing_config.append("emulatorExecutable")
         issues.append(f"Emulator is not executable: {emulator_probe.path}")
 
-    if not sdk_probe.exists:
-        missing_config.append("sdkRoot")
-        recommendations.append("Pass --sdk-root or set DEVECO_SDK_HOME to the SDK image root.")
+    image_missing, image_recommendations = validate_image_root_for_hvd(image_root_probe.path, hvd)
+    missing_config.extend(image_missing)
+    recommendations.extend(image_recommendations)
 
     if not hvd.exists:
         missing_config.append("hvdDirectory")
@@ -587,6 +821,8 @@ def run_launch_preflight(args: argparse.Namespace, root: Path, emulator: Path | 
         "hvdName": hvd.name,
         "hvdRoot": str(root),
         "hvdExists": hvd.exists,
+        "imageRoot": image_root_probe.to_json(),
+        "imageSubPath": hvd.image_sub_path,
         "traceName": args.trace_name,
         "knownSymptom": LOGIN_GATED_MODAL_SYMPTOM,
         "missingConfig": missing_config,
@@ -603,7 +839,7 @@ def run_launch_preflight(args: argparse.Namespace, root: Path, emulator: Path | 
         root,
         hvd,
         args.trace_name,
-        sdk_probe.path,
+        image_root_probe.path,
         args.hdc_port,
     )
     payload["traceHelperReadyFile"] = str(args.trace_helper_ready_file.expanduser().resolve())
@@ -611,26 +847,49 @@ def run_launch_preflight(args: argparse.Namespace, root: Path, emulator: Path | 
     return 0
 
 
-def wait_for_hdc_target(timeout: float, hdc: str = "hdc") -> dict[str, object]:
+def wait_for_hdc_target(timeout: float, hdc: Path | str = "hdc", target_hint: str | None = None) -> dict[str, object]:
     deadline = time.monotonic() + timeout
     last_output = ""
     while time.monotonic() < deadline:
         try:
-            result = subprocess.run([hdc, "list", "targets", "-v"], capture_output=True, text=True, timeout=5)
+            result = subprocess.run([str(hdc), "list", "targets", "-v"], capture_output=True, text=True, timeout=5)
         except (OSError, subprocess.TimeoutExpired) as error:
             return {"connected": False, "error": str(error), "lastOutput": last_output[:2000]}
         last_output = (result.stdout or result.stderr).strip()
-        if "Connected" in last_output:
-            return {"connected": True, "lastOutput": last_output[:2000]}
+        target = parse_connected_target(last_output, target_hint)
+        if target:
+            return {"connected": True, "target": target, "lastOutput": last_output[:2000]}
         time.sleep(1)
     return {"connected": False, "error": "timed out waiting for hdc target", "lastOutput": last_output[:2000]}
+
+
+def wait_for_boot_completed(timeout: float, hdc: Path | str, target: str) -> dict[str, object]:
+    deadline = time.monotonic() + timeout
+    last_output = ""
+    while time.monotonic() < deadline:
+        try:
+            result = subprocess.run(
+                [str(hdc), "-t", target, "shell", "param", "get", "bootevent.boot.completed"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            return {"completed": False, "error": str(error), "lastOutput": last_output[:2000]}
+        last_output = (result.stdout or result.stderr).strip()
+        if last_output.lower() in {"true", "1"}:
+            return {"completed": True, "lastOutput": last_output[:2000]}
+        time.sleep(1)
+    return {"completed": False, "error": "timed out waiting for boot completion", "lastOutput": last_output[:2000]}
 
 
 def run_launch(args: argparse.Namespace, root: Path, emulator: Path | None, sdk_root: Path | None) -> int:
     root = ensure_root(root)
     hvd = find_hvd(root, args.name)
     emulator_probe = probe_first_existing([(emulator, "arg:emulator")] if emulator else candidate_emulators(), executable=True)
-    image_root = (args.image_root or sdk_root or probe_first_existing(candidate_sdk_roots()).path)
+    image_root_probe = resolve_image_root(args, sdk_root)
+    launch_hdc = getattr(args, "launch_hdc", None) or getattr(args, "hdc", None)
+    hdc_probe = probe_first_existing([(launch_hdc, "arg:hdc")] if launch_hdc else candidate_hdcs(sdk_root), executable=True)
 
     missing_config: list[str] = []
     issues: list[str] = []
@@ -644,9 +903,17 @@ def run_launch(args: argparse.Namespace, root: Path, emulator: Path | None, sdk_
         missing_config.append("emulatorExecutable")
         issues.append(f"Emulator is not executable: {emulator_probe.path}")
 
-    if not image_root or not image_root.expanduser().exists():
-        missing_config.append("imageRoot")
-        recommendations.append("Pass --image-root or --sdk-root, or set DEVECO_SDK_HOME to the SDK image root.")
+    image_missing, image_recommendations = validate_image_root_for_hvd(image_root_probe.path, hvd)
+    missing_config.extend(image_missing)
+    recommendations.extend(image_recommendations)
+
+    if not args.no_wait_target:
+        if not hdc_probe.exists:
+            missing_config.append("hdc")
+            recommendations.append("Pass --hdc or set HARMONY_HDC to the DevEco hdc executable when waiting for target boot.")
+        elif not hdc_probe.executable:
+            missing_config.append("hdcExecutable")
+            issues.append(f"HDC is not executable: {hdc_probe.path}")
 
     if not hvd.exists:
         missing_config.append("hvdDirectory")
@@ -662,6 +929,9 @@ def run_launch(args: argparse.Namespace, root: Path, emulator: Path | None, sdk_
         "hvdName": hvd.name,
         "hvdRoot": str(root),
         "hvdExists": hvd.exists,
+        "imageRoot": image_root_probe.to_json(),
+        "imageSubPath": hvd.image_sub_path,
+        "hdc": hdc_probe.to_json(),
         "traceName": args.trace_name,
         "knownSymptom": LOGIN_GATED_MODAL_SYMPTOM,
         "missingConfig": missing_config,
@@ -674,10 +944,14 @@ def run_launch(args: argparse.Namespace, root: Path, emulator: Path | None, sdk_
         return 2
 
     assert emulator_probe.path is not None
-    assert image_root is not None
-    image_root = image_root.expanduser().resolve()
+    assert image_root_probe.path is not None
+    image_root = image_root_probe.path.expanduser().resolve()
     command = build_emulator_command(emulator_probe.path, root, hvd, args.trace_name, image_root, args.hdc_port)
     payload["emulatorCommand"] = command
+    artifact_dir = create_artifact_dir(args.trace_name, args.artifact_dir)
+    log_path = artifact_dir / "emulator-launch.log"
+    payload["artifactDir"] = str(artifact_dir)
+    payload["logPath"] = str(log_path)
 
     socket_path = Path("/tmp") / args.trace_name
     if socket_path.exists():
@@ -690,16 +964,18 @@ def run_launch(args: argparse.Namespace, root: Path, emulator: Path | None, sdk_
 
     trace_bytes = b""
     process: subprocess.Popen[str] | None = None
+    log_file = log_path.open("w", encoding="utf-8")
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as server:
         server.bind(str(socket_path))
         server.listen(1)
         server.settimeout(args.timeout)
         try:
-            process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+            process = subprocess.Popen(command, stdout=log_file, stderr=subprocess.STDOUT, text=True, start_new_session=True)
         except OSError as error:
             payload["decision"] = "blocked"
             payload["result"] = "launch-failed"
             payload["issues"] = [str(error)]
+            log_file.close()
             if socket_path.exists():
                 socket_path.unlink()
             print_json(payload)
@@ -714,27 +990,65 @@ def run_launch(args: argparse.Namespace, root: Path, emulator: Path | None, sdk_
                     trace_bytes = connection.recv(4096)
                 except socket.timeout:
                     trace_bytes = b""
+                trace_holder = start_trace_holder(connection, process.pid, args.trace_hold_seconds, log_path)
+                if trace_holder:
+                    payload["traceHolder"] = trace_holder
         except socket.timeout:
             payload["socketConnected"] = False
             payload["decision"] = "blocked"
             payload["result"] = "trace-timeout"
             payload["missingConfig"] = ["tracePipeConnection"]
-            if process.poll() is None:
-                process.terminate()
+            process_exit_code = process.poll()
+            if process_exit_code is None:
+                try:
+                    process.wait(timeout=0.5)
+                except subprocess.TimeoutExpired:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait(timeout=5)
+            log_file.close()
+            payload["processExitCode"] = process.poll()
+            payload["logTail"] = read_text_snippet(log_path)
+            payload["hvdRuntime"] = probe_emulator_runtime(emulator_probe.path, hvd.name)
+            payload["hdcSnapshot"] = snapshot_hdc(hdc_probe.path if hdc_probe.exists else None)
             print_json(payload)
             return 2
         finally:
             if socket_path.exists():
                 socket_path.unlink()
+            if not log_file.closed:
+                log_file.flush()
 
     payload["result"] = "started"
     payload["pid"] = process.pid
+    payload["processExitCode"] = process.poll()
     payload["traceBytesRead"] = len(trace_bytes)
+    if not log_file.closed:
+        log_file.close()
 
     if not args.no_wait_target:
-        payload["hdcWait"] = wait_for_hdc_target(args.timeout)
+        assert hdc_probe.path is not None
+        target_hint = f":{args.hdc_port}" if args.hdc_port is not None else None
+        payload["hdcWait"] = wait_for_hdc_target(args.timeout, hdc_probe.path, target_hint)
+        if payload["hdcWait"].get("connected") and payload["hdcWait"].get("target"):
+            payload["bootWait"] = wait_for_boot_completed(args.timeout, hdc_probe.path, str(payload["hdcWait"]["target"]))
+        payload["stabilityWait"] = wait_for_runtime_stability(
+            args.stability_seconds,
+            process,
+            hdc_probe.path,
+            str(payload["hdcWait"].get("target")) if payload.get("hdcWait", {}).get("target") else None,
+        )
+
+    payload["logTail"] = read_text_snippet(log_path)
+    payload["hvdRuntime"] = probe_emulator_runtime(emulator_probe.path, hvd.name)
+    payload["hdcSnapshot"] = snapshot_hdc(hdc_probe.path if hdc_probe.exists else None)
 
     print_json(payload)
+    if payload.get("stabilityWait", {}).get("stable") is False:
+        return 2
     return 0
 
 
@@ -748,6 +1062,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--emulator", type=Path, help=f"Emulator executable, or env {','.join(EMULATOR_ENV_KEYS)}")
     parser.add_argument("--sdk-root", type=Path, help=f"DevEco SDK root, or env {','.join(SDK_ROOT_ENV_KEYS)}")
+    parser.add_argument("--hdc", type=Path, help=f"HDC executable, or env {','.join(HDC_ENV_KEYS)}")
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -778,6 +1093,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Validate trace-pipe startup preconditions and print a guarded Emulator command plan",
     )
     launch_preflight_parser.add_argument("--name", required=True, help="HVD name to launch")
+    launch_preflight_parser.add_argument("--image-root", type=Path, help="Emulator image root passed to Emulator -imageRoot")
     launch_preflight_parser.add_argument("--trace-name", help="Trace pipe name prepared by a verified helper")
     launch_preflight_parser.add_argument(
         "--trace-helper-ready-file",
@@ -792,10 +1108,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Create a bounded trace socket and start Emulator with the guarded CLI command",
     )
     launch_parser.add_argument("--name", required=True, help="HVD name to launch")
-    launch_parser.add_argument("--image-root", type=Path, help="SDK image root passed to Emulator -imageRoot")
+    launch_parser.add_argument("--image-root", type=Path, help="Emulator image root passed to Emulator -imageRoot")
     launch_parser.add_argument("--trace-name", required=True, help="Trace pipe name for this launch")
     launch_parser.add_argument("--hdc-port", type=int, help="Optional HDC port, 10000..16555")
+    launch_parser.add_argument("--hdc", dest="launch_hdc", type=Path, help=f"HDC executable, or env {','.join(HDC_ENV_KEYS)}")
+    launch_parser.add_argument("--artifact-dir", type=Path, help="Directory for launch logs and diagnostic artifacts")
     launch_parser.add_argument("--timeout", type=float, default=30, help="Seconds to wait for trace socket / hdc target")
+    launch_parser.add_argument("--trace-hold-seconds", type=float, default=1800, help="Seconds to keep the trace connection alive after startup")
+    launch_parser.add_argument("--stability-seconds", type=float, default=60, help="Seconds to verify the Emulator process and HDC target stay alive after boot")
     launch_parser.add_argument("--no-wait-target", action="store_true", help="Return after Emulator connects to trace socket")
     launch_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON")
 

@@ -219,20 +219,20 @@ python3 harmony-next/scripts/hvd_manager.py doctor --json
 python3 harmony-next/scripts/hvd_manager.py create --from "<source-hvd>" --name "<new-hvd>" --hdc-port 10100
 python3 harmony-next/scripts/hvd_manager.py delete --name "<new-hvd>" --confirm-name "<new-hvd>"
 python3 harmony-next/scripts/hvd_manager.py launch-preflight --name "<hvd-name>" --trace-name "<trace-name>" --trace-helper-ready-file "<helper-ready-file>" --json
-python3 harmony-next/scripts/hvd_manager.py launch --name "<hvd-name>" --image-root "<sdk-image-root>" --trace-name "<trace-name>" --json
+python3 harmony-next/scripts/hvd_manager.py launch --name "<hvd-name>" --image-root "<emulator-image-root>" --trace-name "<trace-name>" --json
 python3 harmony-next/scripts/hvd_manager.py download-image --device-type phone --api-version 22
 ```
 
 实现边界：
 
 - `list` 只读解析 HVD root 下的根 `.ini` 与实例 `config.ini`。
-- `doctor` 探测本机平台、HVD root、Emulator 可执行文件、SDK root、Emulator 版本和 HVD 列表；输出不包含 HVD UUID。
+- `doctor` 探测本机平台、HVD root、Emulator 可执行文件、build SDK root、emulator image root、HDC、Emulator 版本和 HVD 列表；输出不包含 HVD UUID。
 - `create` 以现有本地实例为源克隆目录，刷新名称、路径、UUID、`hardware-qemu.ini` 中的 HVD 名称以及可选 HDC 端口；默认不复制旧日志。
 - `delete` 必须传入完全匹配的 `--confirm-name`，只删除 HVD root 内目标实例目录、根 `.ini` 和 `lists.json` 同名条目。
-- `launch-preflight` 验证启动前置条件，不创建 trace pipe、不启动 Emulator；缺少 `traceName` 或 helper readiness 文件时返回 `blocked`，满足时输出含 `-t <trace-name>` 的命令计划。
-- `launch` 创建启动期 trace socket，执行含 `-t <trace-name>` 的 Emulator 命令；缺少 HVD、Emulator、image root 或 trace name 时返回 machine-readable `blocked`。
+- `launch-preflight` 验证启动前置条件，不创建 trace pipe、不启动 Emulator；缺少 `traceName`、helper readiness 文件或 HVD `imageSubPath` 对应系统镜像时返回 `blocked`，满足时输出含 `-t <trace-name>` 的命令计划。
+- `launch` 创建启动期 trace socket，detach Emulator 进程与 trace holder 后执行含 `-t <trace-name>` 的 Emulator 命令；缺少 HVD、Emulator、image root、trace name 或 HDC 时返回 machine-readable `blocked`。启动失败、trace 超时或 HDC/boot/稳定性检查超时时输出 `logPath`、`processExitCode`、`hvdRuntime`、`hdcSnapshot`、`hdcWait`、`bootWait` 和 `stabilityWait` 诊断。
 - `download-image` 暂不执行下载，只返回 machine-readable `blocked`，用于明确区分“已有命令入口”和“仍需 SDK Manager bridge 的能力”。
-- 环境适配：`--root` / `HARMONY_HVD_ROOT` 指定 HVD root；`--emulator` / `HARMONY_EMULATOR` 指定 Emulator；`--sdk-root` / `DEVECO_SDK_HOME` 指定 SDK root。未指定时脚本会按当前平台探测常见 DevEco Studio 安装位置。
+- 环境适配：`--root` / `HARMONY_HVD_ROOT` 指定 HVD root；`--emulator` / `HARMONY_EMULATOR` 指定 Emulator；`--image-root` / `HARMONY_EMULATOR_IMAGE_ROOT` 指定模拟器镜像根；`--hdc` / `HARMONY_HDC` 指定 HDC；`--sdk-root` / `DEVECO_SDK_HOME` 只表示 DevEco build SDK root。macOS 常见拆分是 build SDK root 为 `/Applications/DevEco-Studio.app/Contents/sdk`，模拟器镜像根为 `$HOME/Library/Huawei/Sdk`。
 
 真实环境 smoke（2026-05-21）：
 
@@ -1370,6 +1370,8 @@ ui: layoutNodes=<n>, clickableNodes=<n>, screenshotCaptured=<true|false>, rawCon
 
 参数：`hvd_name`、`hvd_root`、`image_root`、必填 `trace_name`、可选 `hdc_port`。
 
+`image_root` 是模拟器系统镜像根目录，不是 DevEco build SDK root。启动前读取 HVD `config.ini` 的 `imageSubPath`，校验 `<image_root>/<imageSubPath>` 存在；例如 macOS 上常见可用路径是 `$HOME/Library/Huawei/Sdk`，而 `/Applications/DevEco-Studio.app/Contents/sdk` 只用于 hvigor/build SDK。
+
 ```bash
 EMULATOR="/Applications/DevEco-Studio.app/Contents/tools/emulator/Emulator"
 
@@ -1377,7 +1379,7 @@ EMULATOR="/Applications/DevEco-Studio.app/Contents/tools/emulator/Emulator"
 "$EMULATOR" -hvd "$hvd_name" -path "$hvd_root" -imageRoot "$image_root" -t "$trace_name" -hdcport "$hdc_port"
 ```
 
-启动前必须由 runner 准备并持有同名 trace pipe helper。启动命令本身不代表 boot 完成，必须后接 `wait-target`。
+启动前必须由 runner 准备并持有同名 trace pipe helper。启动命令本身不代表 boot 完成，必须后接 `wait-target`、`bootevent.boot.completed` 和稳定性检查；若进程静默退出、调用进程退出后 HDC target 消失或 trace 超时，runner 必须返回 stdout/stderr 日志路径、进程退出码、`Emulator -list -details` 摘要和 `hdc list targets -v` 快照。仓库脚本的 `launch` 默认让 trace holder 保活 1800 秒，并做 60 秒稳定性检查。
 
 ### select-target
 

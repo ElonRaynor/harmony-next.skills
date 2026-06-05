@@ -373,6 +373,131 @@ class HvdManagerTests(unittest.TestCase):
         self.assertIn("-hdcport", payload["emulatorCommand"])
         self.assertIn("10123", payload["emulatorCommand"])
 
+    def test_launch_preflight_blocks_when_image_subpath_is_missing(self) -> None:
+        MODULE.update_key_value_file(
+            self.source_dir / "config.ini",
+            {"imageSubPath": "system-image/HarmonyOS-6.0.2/phone_all_arm/"},
+        )
+        emulator = Path(self.temp_dir.name) / "Emulator"
+        emulator.write_text("#!/bin/sh\necho should-not-run\n", encoding="utf-8")
+        emulator.chmod(0o755)
+        image_root = Path(self.temp_dir.name) / "wrong-image-root"
+        image_root.mkdir()
+        ready_file = Path(self.temp_dir.name) / "trace.ready"
+        ready_file.write_text("ready\n", encoding="utf-8")
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                "--root",
+                str(self.root),
+                "--emulator",
+                str(emulator),
+                "launch-preflight",
+                "--name",
+                "Source Phone",
+                "--image-root",
+                str(image_root),
+                "--trace-name",
+                "ai-emu-test",
+                "--trace-helper-ready-file",
+                str(ready_file),
+                "--json",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 2)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["decision"], "blocked")
+        self.assertIn("imageRootSystemImage", payload["missingConfig"])
+        self.assertNotIn("emulatorCommand", payload)
+        self.assertIn("Library/Huawei/Sdk", " ".join(payload["recommendations"]))
+
+    def test_launch_preflight_allows_matching_image_subpath(self) -> None:
+        MODULE.update_key_value_file(
+            self.source_dir / "config.ini",
+            {"imageSubPath": "system-image/HarmonyOS-6.0.2/phone_all_arm/"},
+        )
+        emulator = Path(self.temp_dir.name) / "Emulator"
+        emulator.write_text("#!/bin/sh\necho should-not-run\n", encoding="utf-8")
+        emulator.chmod(0o755)
+        image_root = Path(self.temp_dir.name) / "image-root"
+        (image_root / "system-image" / "HarmonyOS-6.0.2" / "phone_all_arm").mkdir(parents=True)
+        ready_file = Path(self.temp_dir.name) / "trace.ready"
+        ready_file.write_text("ready\n", encoding="utf-8")
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                "--root",
+                str(self.root),
+                "--emulator",
+                str(emulator),
+                "launch-preflight",
+                "--name",
+                "Source Phone",
+                "--image-root",
+                str(image_root),
+                "--trace-name",
+                "ai-emu-test",
+                "--trace-helper-ready-file",
+                str(ready_file),
+                "--json",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["decision"], "allowed")
+        self.assertIn(str(image_root.resolve()), payload["emulatorCommand"])
+
+    def test_launch_blocks_bad_image_root_before_starting_emulator(self) -> None:
+        MODULE.update_key_value_file(
+            self.source_dir / "config.ini",
+            {"imageSubPath": "system-image/HarmonyOS-6.0.2/phone_all_arm/"},
+        )
+        marker = Path(self.temp_dir.name) / "started.marker"
+        emulator = Path(self.temp_dir.name) / "Emulator"
+        emulator.write_text(f"#!/bin/sh\ntouch {marker}\n", encoding="utf-8")
+        emulator.chmod(0o755)
+        image_root = Path(self.temp_dir.name) / "wrong-image-root"
+        image_root.mkdir()
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                "--root",
+                str(self.root),
+                "--emulator",
+                str(emulator),
+                "launch",
+                "--name",
+                "Source Phone",
+                "--image-root",
+                str(image_root),
+                "--trace-name",
+                "ai-emu-test-bad-root",
+                "--no-wait-target",
+                "--json",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 2)
+        payload = json.loads(result.stdout)
+        self.assertIn("imageRootSystemImage", payload["missingConfig"])
+        self.assertFalse(marker.exists())
+
     def test_launch_creates_trace_socket_and_starts_emulator(self) -> None:
         emulator = Path(self.temp_dir.name) / "Emulator"
         emulator.write_text(
@@ -427,8 +552,132 @@ class HvdManagerTests(unittest.TestCase):
         self.assertEqual(payload["traceName"], "ai-emu-test-launch")
         self.assertTrue(payload["socketConnected"])
         self.assertGreater(payload["traceBytesRead"], 0)
+        self.assertIn("traceHolder", payload)
         self.assertIn("-t", payload["emulatorCommand"])
         self.assertIn("ai-emu-test-launch", payload["emulatorCommand"])
+
+    def test_launch_reports_unstable_process_after_boot(self) -> None:
+        emulator = Path(self.temp_dir.name) / "Emulator"
+        emulator.write_text(
+            textwrap.dedent(
+                """\
+                #!/usr/bin/env python3
+                import socket
+                import sys
+                import time
+
+                trace_name = sys.argv[sys.argv.index("-t") + 1]
+                client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                client.connect(f"/tmp/{trace_name}")
+                client.sendall(b'{"event":"fake-start"}\\n')
+                time.sleep(0.1)
+                client.close()
+                raise SystemExit(9)
+                """
+            ),
+            encoding="utf-8",
+        )
+        emulator.chmod(0o755)
+        hdc = Path(self.temp_dir.name) / "hdc"
+        hdc.write_text(
+            textwrap.dedent(
+                """\
+                #!/bin/sh
+                case "$*" in
+                  *"list targets -v"*) echo "127.0.0.1:10123  TCP  Connected  localhost" ;;
+                  *"param get bootevent.boot.completed"*) echo "true" ;;
+                  *) echo "" ;;
+                esac
+                """
+            ),
+            encoding="utf-8",
+        )
+        hdc.chmod(0o755)
+        image_root = Path(self.temp_dir.name) / "image-root"
+        image_root.mkdir()
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                "--root",
+                str(self.root),
+                "--emulator",
+                str(emulator),
+                "launch",
+                "--name",
+                "Source Phone",
+                "--image-root",
+                str(image_root),
+                "--trace-name",
+                "ai-emu-unstable",
+                "--hdc",
+                str(hdc),
+                "--hdc-port",
+                "10123",
+                "--timeout",
+                "2",
+                "--stability-seconds",
+                "1",
+                "--trace-hold-seconds",
+                "0",
+                "--json",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 2)
+        payload = json.loads(result.stdout)
+        self.assertTrue(payload["hdcWait"]["connected"])
+        self.assertTrue(payload["bootWait"]["completed"])
+        self.assertFalse(payload["stabilityWait"]["stable"])
+        self.assertEqual(payload["stabilityWait"]["reason"], "process-exited")
+        self.assertEqual(payload["stabilityWait"]["processExitCode"], 9)
+
+    def test_launch_reports_silent_exit_diagnostics(self) -> None:
+        emulator = Path(self.temp_dir.name) / "Emulator"
+        emulator.write_text("#!/bin/sh\nexit 7\n", encoding="utf-8")
+        emulator.chmod(0o755)
+        image_root = Path(self.temp_dir.name) / "image-root"
+        image_root.mkdir()
+        artifact_dir = Path(self.temp_dir.name) / "artifacts"
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                "--root",
+                str(self.root),
+                "--emulator",
+                str(emulator),
+                "launch",
+                "--name",
+                "Source Phone",
+                "--image-root",
+                str(image_root),
+                "--trace-name",
+                "ai-emu-silent-exit",
+                "--artifact-dir",
+                str(artifact_dir),
+                "--no-wait-target",
+                "--timeout",
+                "0.2",
+                "--json",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 2)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["result"], "trace-timeout")
+        self.assertEqual(payload["processExitCode"], 7)
+        self.assertTrue(Path(payload["logPath"]).exists())
+        self.assertIn("hvdRuntime", payload)
+        self.assertIn("hdcSnapshot", payload)
 
 
 if __name__ == "__main__":
