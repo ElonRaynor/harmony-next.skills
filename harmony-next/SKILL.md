@@ -22,7 +22,7 @@ For "latest", "current", new API, or online-doc parity questions, compare this l
 Install/update entrypoints:
 
 - Gemini CLI: `gemini skills install https://github.com/linhay/harmony-next.skills --path harmony-next --scope user`
-- Claude.ai / Claude Code: use the release `.skill` asset or the `harmony-next/` skill directory.
+- Claude.ai / Claude Code: use the release `harmony-next.skill.zip` asset or the `harmony-next/` skill directory.
 - Codex: official Agent Skills docs say direct skill folders are for local authoring/discovery. Put or symlink `harmony-next/` into an official Codex scan location such as `$REPO_ROOT/.agents/skills/harmony-next`, `$HOME/.agents/skills/harmony-next`, or `/etc/codex/skills/harmony-next`; for reusable installable distribution, package it as a Codex plugin.
 
 ## Routing

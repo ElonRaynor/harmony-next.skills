@@ -64,10 +64,7 @@ jobs:
         run: python3 -m unittest discover -s harmony-next/tests -p 'test_*.py' -v
 
       - name: Package Skill
-        run: |
-          cd harmony-next
-          zip -r ../harmony-next.skill .
-          cd ..
+        run: python3 harmony-next/scripts/package_skill.py --output harmony-next.skill.zip --release-tag "${{ steps.release-version.outputs.tag }}" --json
 
       - name: Create Nightly Release
         if: github.ref == 'refs/heads/master' && steps.release-version.outputs.tag == ''
@@ -76,7 +73,7 @@ jobs:
           tag_name: nightly
           name: Nightly
           prerelease: true
-          files: harmony-next.skill
+          files: harmony-next.skill.zip
           generate_release_notes: true
           append_body: true
         env:
@@ -88,7 +85,7 @@ jobs:
         with:
           tag_name: ${{ steps.release-version.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          files: harmony-next.skill
+          files: harmony-next.skill.zip
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -97,7 +94,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: harmony-next.skill
+          files: harmony-next.skill.zip
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -107,7 +104,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release-version.outputs.tag }}
-          files: harmony-next.skill
+          files: harmony-next.skill.zip
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

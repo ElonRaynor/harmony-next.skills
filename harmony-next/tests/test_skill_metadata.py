@@ -6,6 +6,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 
@@ -21,6 +22,7 @@ SCRIPT_ROOT = SKILL_ROOT / "scripts"
 sys.path.insert(0, str(SCRIPT_ROOT))
 
 import sync_release_version  # noqa: E402
+import package_skill  # noqa: E402
 
 
 class SkillMetadataTests(unittest.TestCase):
@@ -206,6 +208,38 @@ class SkillMetadataTests(unittest.TestCase):
         for fragment in required_emulator_fragments:
             with self.subTest(fragment=fragment):
                 self.assertIn(fragment, self.emulator_playbook_text)
+
+    def test_release_workflow_uses_skill_zip_asset(self) -> None:
+        workflow_text = (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+
+        self.assertIn("harmony-next.skill.zip", workflow_text)
+        self.assertIn("package_skill.py", workflow_text)
+        self.assertNotIn("harmony-next.skill\n", workflow_text)
+
+    def test_package_skill_includes_build_info_and_issue_guide(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = Path(temp_dir) / "harmony-next.skill.zip"
+            payload = package_skill.package_skill(REPO_ROOT, SKILL_ROOT, output, release_tag="v9.9.9")
+
+            self.assertTrue(output.is_file())
+            self.assertEqual(payload["buildInfo"]["name"], "harmony-next")
+            self.assertEqual(payload["buildInfo"]["releaseTag"], "v9.9.9")
+
+            with zipfile.ZipFile(output) as archive:
+                names = set(archive.namelist())
+                self.assertIn("SKILL.md", names)
+                self.assertIn("ISSUE_GUIDE.md", names)
+                self.assertIn("BUILD_INFO.json", names)
+                build_info = json.loads(archive.read("BUILD_INFO.json").decode("utf-8"))
+                issue_guide = archive.read("ISSUE_GUIDE.md").decode("utf-8")
+
+            metadata_version = re.search(r"version:\s*\"(\d+\.\d+\.\d+)\"", self.skill_text)
+            self.assertIsNotNone(metadata_version)
+            self.assertEqual(build_info["version"], metadata_version.group(1))
+            self.assertRegex(build_info["git"]["commit"], r"^[0-9a-f]{40}$")
+            self.assertRegex(build_info["git"]["shortCommit"], r"^[0-9a-f]{7}$")
+            self.assertIn("gh issue create --repo linhay/harmony-next.skills", issue_guide)
+            self.assertIn("hvd_manager.py doctor --json", issue_guide)
 
     def test_emulator_proxy_capture_guidance_is_external_user_facing(self) -> None:
         required_skill_fragments = [

@@ -189,6 +189,7 @@ ln -s "$(pwd)/harmony-next.skills/harmony-next" "$HOME/.agents/skills/harmony-ne
 | --- | --- |
 | `v1.3.7` | 新增可复制 HarmonyOS NEXT Empty Ability 最小测试工程模板：`references/templates/empty-ability-app`；默认 `com.example.emptyability` / `EntryAbility` / `5.0.0(12)`，补充 SDK 版本适配验证（含 `6.0.2(22)` / `DEVECO_SDK_HOME=/Applications/DevEco-Studio.app/Contents/sdk`）、`ohpm install`、`hvigorw --mode module`、HDC 启动、`uitest dumpLayout` 和 `uitest uiInput click` smoke 能力 |
 | `Unreleased` | DevEco Emulator CLI 启动补充 trace socket 守护入口：`hvd_manager.py launch-preflight` 只输出带 `-t <trace-name>` 的命令计划，`hvd_manager.py launch` 创建 trace socket、detach Emulator 与 trace holder 后启动；启动前按 HVD `imageSubPath` 校验 emulator image root，区分 build SDK root 与 `~/Library/Huawei/Sdk`；启动失败/超时时返回退出码、日志路径、HDC 快照、HVD 运行态和稳定性检查等 machine-readable 诊断 |
+| `Unreleased` | Release 产物改为 `harmony-next.skill.zip`，包内新增 `BUILD_INFO.json` 记录版本、release tag 与 git commit，并新增 `ISSUE_GUIDE.md` 指导 agent 复现、脱敏、分类和提交仓库 issue |
 | `v1.3.6` | DevEco 模拟器 playbook 新增非交互自动化策略：用户默认拥有完整权限，`policy` 仅表示执行模式；支持 `readonly/evidence/automation/diagnostic/break-glass`、artifact 目录、脱敏元数据与 machine-readable blocked 输出 |
 | `v1.3.5` | 新增 DevEco Studio IDE 私有未公开能力参考：CodeGenie 本地 RAG/MCP/LanceDB、`devecostudio://`、Previewer、ArkUI Inspector、Profiler、Doctor、UxTestService、插件入口索引与隐私风险门禁；更新 README 与触发词 |
 | `v1.3.4` | 新增 DevEco Studio 模拟器私有未公开自动化参考：免 IDE 启动、`hdc + uitest`、HVD、多实例、风险门禁、超时与脱敏边界；更新 `SKILL.md` 触发词与任务索引 |
