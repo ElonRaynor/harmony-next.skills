@@ -2,7 +2,7 @@
 name: harmony-next
 description: Use for HarmonyOS NEXT development help and local DevEco automation. Covers ArkTS/ArkUI/NDK API lookup, offline guide navigation, DevEco Studio and HarmonyOS Emulator tasks, hdc/uitest/aa/bm/hilog/hidumper diagnostics, and private DevEco interfaces such as CodeGenie, MCP, LanceDB, devecostudio://, ArkUI Inspector, Previewer, Profiler, Doctor, and UxTestService.
 metadata:
-  version: "1.3.7"
+  version: "1.3.22"
 ---
 
 # HarmonyOS NEXT Agent Guide
@@ -13,7 +13,7 @@ Paths like `references/...` are relative to this skill directory (`harmony-next/
 
 ## Version
 
-Current local skill version: `v1.3.7`.
+Current local skill version: `v1.3.22`.
 
 Reference snapshot: bundled `references/` are an offline HarmonyOS API 12-23 snapshot, not live web docs.
 
@@ -126,6 +126,7 @@ HVD manager command map:
 | `list --json` | List registered HVDs without exposing UUIDs | `name`, `device_type`, `api_version`, `hdc_port`, `image_sub_path`, `exists` |
 | `launch-preflight --name <hvd> --image-root <dir> --trace-name <name> --trace-helper-ready-file <file> --json` | Validate trace helper readiness and image root without starting Emulator | `decision`, `missingConfig`, `emulatorCommand` |
 | `launch --name <hvd> --image-root <dir> --trace-name <name> --json` | Current implementation: create trace socket, detach Emulator and trace holder, then wait for HDC, boot, and stability | `traceHolder`, `hdcWait`, `bootWait`, `stabilityWait`, `logPath` |
+| `launch --accept-license ... --json` | Explicitly answer yes to the first-run Huawei Emulator agreement prompt after the operator has reviewed it | `result=started` or `result=license-agreement-required` |
 
 HVD launch rules:
 
@@ -133,6 +134,7 @@ HVD launch rules:
 - `--image-root` / `HARMONY_EMULATOR_IMAGE_ROOT` is the emulator image root. On macOS this is commonly `~/Library/Huawei/Sdk`.
 - `launch` and `launch-preflight` validate `<image-root>/<imageSubPath>` from HVD `config.ini`; failures return `missingConfig=["imageRootSystemImage"]`.
 - Current `launch` defaults: trace holder stays alive for 1800 seconds, and the post-boot stability check runs for 60 seconds.
+- First-run Emulator license/agreement prompts are classified as `result="license-agreement-required"` with `missingConfig=["emulatorLicenseAgreement"]`; do not silently accept them. Use `--accept-license` only as an explicit opt-in after the agreement has been reviewed.
 - If another process needs to install HAPs, deep link, screenshot, or dump layout after current detached `launch`, use the returned `hdcWait.target` and keep the trace holder alive long enough with `--trace-hold-seconds`.
 - Attached lifecycle checklist: the runner must stay foreground, keep the trace socket in-process, trap `SIGINT` / `SIGTERM` / `SIGHUP`, call `Emulator -stop`, close the socket, remove only its own trace path, and verify `hdc list targets -v` no longer reports the selected target.
 - Failure/timeout diagnostics should include `logPath`, `processExitCode`, `hvdRuntime`, `hdcSnapshot`, `hdcWait`, `bootWait`, and `stabilityWait` when present.
@@ -160,4 +162,4 @@ CodeGenie、MCP、LanceDB、HTTP forwarding、Application Agent、Operation Anal
 - **ArkUI 优先声明式**：示例优先使用 `@Entry` / `@Component` / `build()`（除非文档明确是 NDK 或系统服务）。
 - **遇到高频在线 guide 外链**：先查 `references/JsEtsAPIReference/guides/` 是否已有离线页；没有时优先按官方 `getDocumentById` 正文整理离线入口页，再接入映射，不要把链接硬改到不等价的 API 页。
 
-<!-- version: 1.3.7 -->
+<!-- version: 1.3.22 -->

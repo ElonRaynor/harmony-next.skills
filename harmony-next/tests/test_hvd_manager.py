@@ -498,6 +498,119 @@ class HvdManagerTests(unittest.TestCase):
         self.assertIn("imageRootSystemImage", payload["missingConfig"])
         self.assertFalse(marker.exists())
 
+    def test_launch_classifies_first_run_license_agreement_prompt(self) -> None:
+        emulator = Path(self.temp_dir.name) / "Emulator"
+        emulator.write_text(
+            textwrap.dedent(
+                """\
+                #!/usr/bin/env python3
+                import sys
+
+                _ = sys.stdin.read()
+                print("Please read carefully and confirm whether agree to the above agreement? (y/N): Please agree to the agreement first.")
+                print("Unable to start the emulator")
+                raise SystemExit(1)
+                """
+            ),
+            encoding="utf-8",
+        )
+        emulator.chmod(0o755)
+        image_root = Path(self.temp_dir.name) / "image-root"
+        image_root.mkdir()
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                "--root",
+                str(self.root),
+                "--emulator",
+                str(emulator),
+                "launch",
+                "--name",
+                "Source Phone",
+                "--image-root",
+                str(image_root),
+                "--trace-name",
+                "ai-emu-license",
+                "--no-wait-target",
+                "--timeout",
+                "0.2",
+                "--json",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 2)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["decision"], "blocked")
+        self.assertEqual(payload["result"], "license-agreement-required")
+        self.assertEqual(payload["missingConfig"], ["emulatorLicenseAgreement"])
+        self.assertIn("--accept-license", " ".join(payload["recommendations"]))
+        self.assertIn("Please agree to the agreement first", payload["logTail"])
+
+    def test_launch_accept_license_writes_explicit_confirmation(self) -> None:
+        marker = Path(self.temp_dir.name) / "accepted.marker"
+        emulator = Path(self.temp_dir.name) / "Emulator"
+        emulator.write_text(
+            textwrap.dedent(
+                f"""\
+                #!/usr/bin/env python3
+                import socket
+                import sys
+
+                accepted = sys.stdin.read().strip().lower() == "y"
+                if not accepted:
+                    print("Please agree to the agreement first.")
+                    raise SystemExit(1)
+                open({str(marker)!r}, "w", encoding="utf-8").write("accepted\\n")
+                trace_name = sys.argv[sys.argv.index("-t") + 1]
+                client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                client.connect(f"/tmp/{{trace_name}}")
+                client.sendall(b'{{"event":"fake-start"}}\\n')
+                client.close()
+                """
+            ),
+            encoding="utf-8",
+        )
+        emulator.chmod(0o755)
+        image_root = Path(self.temp_dir.name) / "image-root"
+        image_root.mkdir()
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                "--root",
+                str(self.root),
+                "--emulator",
+                str(emulator),
+                "launch",
+                "--name",
+                "Source Phone",
+                "--image-root",
+                str(image_root),
+                "--trace-name",
+                "ai-emu-accept-license",
+                "--accept-license",
+                "--no-wait-target",
+                "--timeout",
+                "3",
+                "--json",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["decision"], "allowed")
+        self.assertEqual(payload["result"], "started")
+        self.assertTrue(payload["socketConnected"])
+        self.assertTrue(marker.exists())
+
     def test_launch_creates_trace_socket_and_starts_emulator(self) -> None:
         emulator = Path(self.temp_dir.name) / "Emulator"
         emulator.write_text(

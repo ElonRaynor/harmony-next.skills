@@ -26,6 +26,7 @@ HDC_ENV_KEYS = ["HARMONY_HDC", "DEVECO_HDC", "HDC"]
 NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}$")
 TRACE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 LOGIN_GATED_MODAL_SYMPTOM = "模拟器启动失败 / 请在DevEco Studio中登录华为账号，并从设备管理中启动模拟器"
+LICENSE_AGREEMENT_RESULT = "license-agreement-required"
 
 
 class HvdManagerError(RuntimeError):
@@ -647,6 +648,26 @@ def read_text_snippet(path: Path, limit: int = 4000) -> str:
     return data.decode("utf-8", errors="replace")
 
 
+def log_indicates_license_agreement_required(text: str) -> bool:
+    lowered = text.lower()
+    return (
+        "please agree to the agreement first" in lowered
+        or "confirm whether agree to the above agreement" in lowered
+        or ("agreement" in lowered and "unable to start the emulator" in lowered)
+    )
+
+
+def apply_license_agreement_result(payload: dict[str, object]) -> None:
+    payload["decision"] = "blocked"
+    payload["result"] = LICENSE_AGREEMENT_RESULT
+    payload["missingConfig"] = ["emulatorLicenseAgreement"]
+    payload["issues"] = ["Emulator requires first-run Huawei license/agreement confirmation before CLI launch can continue."]
+    payload["recommendations"] = [
+        "Run the Emulator once interactively and accept the agreement, or retry with launch --accept-license after reviewing the agreement.",
+        "The script does not auto-accept this prompt unless --accept-license is passed explicitly.",
+    ]
+
+
 def run_short_command(command: list[str], timeout: float = 5) -> dict[str, object]:
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=timeout, check=False)
@@ -1058,7 +1079,26 @@ def run_launch(args: argparse.Namespace, root: Path, emulator: Path | None, sdk_
         server.listen(1)
         server.settimeout(args.timeout)
         try:
-            process = subprocess.Popen(command, stdout=log_file, stderr=subprocess.STDOUT, text=True, start_new_session=True)
+            process = subprocess.Popen(
+                command,
+                stdin=subprocess.PIPE,
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                text=True,
+                start_new_session=True,
+            )
+            if process.stdin:
+                try:
+                    if args.accept_license:
+                        process.stdin.write("y\n")
+                        process.stdin.flush()
+                except BrokenPipeError:
+                    pass
+                finally:
+                    try:
+                        process.stdin.close()
+                    except BrokenPipeError:
+                        pass
         except OSError as error:
             payload["decision"] = "blocked"
             payload["result"] = "launch-failed"
@@ -1100,6 +1140,11 @@ def run_launch(args: argparse.Namespace, root: Path, emulator: Path | None, sdk_
             log_file.close()
             payload["processExitCode"] = process.poll()
             payload["logTail"] = read_text_snippet(log_path)
+            if log_indicates_license_agreement_required(str(payload["logTail"])):
+                payload["socketConnected"] = False
+                apply_license_agreement_result(payload)
+                print_json(payload)
+                return 2
             hvd_runtime = probe_emulator_runtime(emulator_probe.path, hvd.name)
             hdc_snapshot = snapshot_hdc(hdc_probe.path if hdc_probe.exists else None)
             payload["hvdRuntime"] = hvd_runtime
@@ -1220,6 +1265,11 @@ def build_parser() -> argparse.ArgumentParser:
     launch_parser.add_argument("--trace-hold-seconds", type=float, default=1800, help="Seconds to keep the trace connection alive after startup")
     launch_parser.add_argument("--stability-seconds", type=float, default=60, help="Seconds to verify the Emulator process and HDC target stay alive after boot")
     launch_parser.add_argument("--no-wait-target", action="store_true", help="Return after Emulator connects to trace socket")
+    launch_parser.add_argument(
+        "--accept-license",
+        action="store_true",
+        help="Explicitly answer yes to the Emulator first-run Huawei license/agreement prompt",
+    )
     launch_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON")
 
     return parser
