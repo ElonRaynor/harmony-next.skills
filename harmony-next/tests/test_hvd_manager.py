@@ -678,6 +678,68 @@ class HvdManagerTests(unittest.TestCase):
         self.assertTrue(Path(payload["logPath"]).exists())
         self.assertIn("hvdRuntime", payload)
         self.assertIn("hdcSnapshot", payload)
+        self.assertIn("traceTimeoutDiagnostics", payload)
+        self.assertIn("Emulator process exited", " ".join(payload["traceTimeoutDiagnostics"]["likelyCauses"]))
+
+    def test_launch_reports_trace_timeout_next_diagnostics(self) -> None:
+        emulator = Path(self.temp_dir.name) / "Emulator"
+        emulator.write_text(
+            textwrap.dedent(
+                """\
+                #!/bin/sh
+                if [ "$1" = "-list" ]; then
+                  echo "name=Source Phone isRunning=false hw.hdc.port=10107"
+                  exit 0
+                fi
+                sleep 10
+                """
+            ),
+            encoding="utf-8",
+        )
+        emulator.chmod(0o755)
+        hdc = Path(self.temp_dir.name) / "hdc"
+        hdc.write_text("#!/bin/sh\necho '127.0.0.1:10107  TCP  Offline  localhost'\n", encoding="utf-8")
+        hdc.chmod(0o755)
+        image_root = Path(self.temp_dir.name) / "image-root"
+        image_root.mkdir()
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                "--root",
+                str(self.root),
+                "--emulator",
+                str(emulator),
+                "launch",
+                "--name",
+                "Source Phone",
+                "--image-root",
+                str(image_root),
+                "--trace-name",
+                "ai-emu-hangs",
+                "--hdc",
+                str(hdc),
+                "--no-wait-target",
+                "--timeout",
+                "0.2",
+                "--json",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 2)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["result"], "trace-timeout")
+        diagnostics = payload["traceTimeoutDiagnostics"]
+        self.assertEqual(diagnostics["socketPath"], "/tmp/ai-emu-hangs")
+        self.assertIn("Offline targets", " ".join(diagnostics["likelyCauses"]))
+        self.assertIn("nextDiagnosticCommands", diagnostics)
+        command_purposes = {item["purpose"] for item in diagnostics["nextDiagnosticCommands"]}
+        self.assertIn("Inspect HVD runtime state", command_purposes)
+        self.assertIn("Inspect HDC target state", command_purposes)
 
 
 if __name__ == "__main__":

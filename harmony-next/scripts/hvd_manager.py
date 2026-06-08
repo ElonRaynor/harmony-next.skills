@@ -685,6 +685,91 @@ def snapshot_hdc(hdc: Path | None) -> dict[str, object]:
     return run_short_command([str(hdc), "list", "targets", "-v"], timeout=5)
 
 
+def has_offline_hdc_target(output: str) -> bool:
+    return any("Offline" in line for line in output.splitlines())
+
+
+def build_trace_timeout_diagnostics(
+    emulator: Path,
+    root: Path,
+    hvd: HvdInfo,
+    image_root: Path,
+    trace_name: str,
+    socket_path: Path,
+    timeout: float,
+    hdc: Path | None,
+    process_exit_code: int | None,
+    hvd_runtime: dict[str, object],
+    hdc_snapshot: dict[str, object],
+) -> dict[str, object]:
+    likely_causes = [
+        "Emulator did not open the guarded trace socket before the launch timeout.",
+        "The DevEco Emulator CLI may be blocked by a login-gated modal, stale runtime state, or changed private startup contract.",
+    ]
+
+    if process_exit_code is not None:
+        likely_causes.insert(1, f"Emulator process exited before trace connection with exit code {process_exit_code}.")
+    elif hvd_runtime.get("ok") is False:
+        likely_causes.append("Emulator -list -details failed or timed out, so the local Emulator runtime may be unhealthy.")
+
+    hdc_output = f"{hdc_snapshot.get('stdout', '')}\n{hdc_snapshot.get('stderr', '')}"
+    if has_offline_hdc_target(hdc_output) and not parse_connected_target(hdc_output):
+        likely_causes.append("HDC reports only Offline targets; restart the HDC server or clear stale Emulator targets before retrying.")
+
+    commands: list[dict[str, object]] = [
+        {
+            "purpose": "Verify Emulator binary responsiveness",
+            "command": [str(emulator), "-version"],
+        },
+        {
+            "purpose": "Inspect HVD runtime state",
+            "command": [str(emulator), "-list", "-details"],
+        },
+    ]
+    if hdc:
+        commands.append(
+            {
+                "purpose": "Inspect HDC target state",
+                "command": [str(hdc), "list", "targets", "-v"],
+            }
+        )
+    commands.append(
+        {
+            "purpose": "Validate launch inputs without starting Emulator",
+            "command": [
+                sys.executable,
+                "harmony-next/scripts/hvd_manager.py",
+                "--root",
+                str(root),
+                "--emulator",
+                str(emulator),
+                "launch-preflight",
+                "--name",
+                hvd.name,
+                "--image-root",
+                str(image_root),
+                "--trace-name",
+                trace_name,
+                "--trace-helper-ready-file",
+                "<ready-file>",
+                "--json",
+            ],
+        }
+    )
+
+    return {
+        "summary": "Trace socket connection was not established before timeout.",
+        "timeoutSeconds": timeout,
+        "socketPath": str(socket_path),
+        "likelyCauses": likely_causes,
+        "nextDiagnosticCommands": commands,
+        "manualChecks": [
+            "If Emulator -list -details also hangs, start the same HVD once from DevEco Studio Device Manager to surface any login or image repair dialog.",
+            "If HDC keeps showing an Offline localhost target, run hdc kill/start from the same SDK toolchain and retry with an explicit --hdc-port.",
+        ],
+    }
+
+
 def parse_connected_target(output: str, target_hint: str | None = None) -> str | None:
     for line in output.splitlines():
         if "Connected" not in line:
@@ -1015,8 +1100,23 @@ def run_launch(args: argparse.Namespace, root: Path, emulator: Path | None, sdk_
             log_file.close()
             payload["processExitCode"] = process.poll()
             payload["logTail"] = read_text_snippet(log_path)
-            payload["hvdRuntime"] = probe_emulator_runtime(emulator_probe.path, hvd.name)
-            payload["hdcSnapshot"] = snapshot_hdc(hdc_probe.path if hdc_probe.exists else None)
+            hvd_runtime = probe_emulator_runtime(emulator_probe.path, hvd.name)
+            hdc_snapshot = snapshot_hdc(hdc_probe.path if hdc_probe.exists else None)
+            payload["hvdRuntime"] = hvd_runtime
+            payload["hdcSnapshot"] = hdc_snapshot
+            payload["traceTimeoutDiagnostics"] = build_trace_timeout_diagnostics(
+                emulator_probe.path,
+                root,
+                hvd,
+                image_root,
+                args.trace_name,
+                socket_path,
+                args.timeout,
+                hdc_probe.path if hdc_probe.exists else None,
+                payload["processExitCode"],
+                hvd_runtime,
+                hdc_snapshot,
+            )
             print_json(payload)
             return 2
         finally:

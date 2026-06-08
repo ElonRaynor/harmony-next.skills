@@ -17,3 +17,4 @@
 - 2026-05-18：多实例通过启动参数显式分配 HDC 端口；脚本只操作 `Connected` target，多个 `Connected` 且未显式指定 target 时必须停止并让上层选择。
 - 2026-05-18：非公开或半公开能力只记录命令级结论、用途、验证结果和风险等级，不记录来源路径、获取方法、内部符号、文件定位信息或业务标识。
 - 2026-06-05：`hvd_manager.py launch-preflight` / `launch` 区分 DevEco build SDK root 与 emulator image root，按 HVD `imageSubPath` 校验系统镜像目录；`launch` 失败或超时时返回日志路径、进程退出码、HVD runtime、HDC 快照、boot 检查和稳定性检查。真实本机验证确认当前 detached 实现里 Emulator 进程和 trace holder 都需要 detach，否则调用方退出后 HDC target 会消失；后续文档核查表已补充 attached 终端托管模式，要求终端结束时通过 `Emulator -stop` 回收 HVD。临时 Terminal foreground runner 已验证 attached 模型可行，但仓库脚本尚未实现 attached 参数。
+- 2026-06-08：issue 16 针对 `hvd_manager.py launch` 的 `trace-timeout` 线上反馈补强可操作诊断；返回仍保持 `missingConfig=["tracePipeConnection"]`，并新增 `traceTimeoutDiagnostics`，包含 socket path、可能原因、下一步诊断命令和手动检查项。该修复只改进 blocked payload，不宣称已解决 DevEco Emulator 私有 trace 启动契约或登录/运行时卡住问题。
