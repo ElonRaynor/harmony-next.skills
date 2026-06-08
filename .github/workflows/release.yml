@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.3
         with:
           fetch-depth: 0
 
@@ -68,7 +68,7 @@ jobs:
 
       - name: Create Nightly Release
         if: github.ref == 'refs/heads/master' && steps.release-version.outputs.tag == ''
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3.0.0
         with:
           tag_name: nightly
           name: Nightly
@@ -81,7 +81,7 @@ jobs:
 
       - name: Create Auto Tagged Release
         if: github.ref == 'refs/heads/master' && steps.release-version.outputs.tag != ''
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3.0.0
         with:
           tag_name: ${{ steps.release-version.outputs.tag }}
           target_commitish: ${{ github.sha }}
@@ -92,7 +92,7 @@ jobs:
 
       - name: Create Tagged Release
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3.0.0
         with:
           files: harmony-next.skill.zip
           generate_release_notes: true
@@ -101,7 +101,7 @@ jobs:
 
       - name: Create Manual Tagged Release
         if: github.event_name == 'workflow_dispatch' && steps.release-version.outputs.tag != ''
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3.0.0
         with:
           tag_name: ${{ steps.release-version.outputs.tag }}
           files: harmony-next.skill.zip
