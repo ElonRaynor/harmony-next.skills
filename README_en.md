@@ -4,7 +4,7 @@ An offline HarmonyOS NEXT reference skill for coding agents such as Gemini CLI, 
 
 Language: English | [中文](./README.md)
 
-[![release](https://img.shields.io/badge/release-v1.3.22-1f6feb?style=flat-square)](https://github.com/linhay/harmony-next.skills/releases/tag/v1.3.22)
+[![release](https://img.shields.io/badge/release-v1.3.23-1f6feb?style=flat-square)](https://github.com/linhay/harmony-next.skills/releases/tag/v1.3.23)
 [![readme](https://img.shields.io/badge/readme-%E4%B8%AD%E6%96%87-0f766e?style=flat-square)](./README.md)
 ![docs](https://img.shields.io/badge/docs-3,693%20markdown%20files-7c3aed?style=flat-square)
 ![js-ets](https://img.shields.io/badge/JsEtsAPIReference-3,666%20files-b45309?style=flat-square)
@@ -35,6 +35,7 @@ The goal is to turn those questions into local file lookups that are traceable, 
 | More than API docs | Includes IDE setup, signing, debugging, release, performance, multi-device, and NDK guidance |
 | Private-interface isolation | DevEco emulator and IDE private capabilities each live in separate chapters with version checks and risk gates |
 | Non-interactive automation policy | DevEco emulator automation supports `HARMONY_NEXT_AUTOMATION_POLICY`; policy is an execution mode, not an authorization gate |
+| Offline UI/UX audit | Uses real emulator screenshots + `uitest dumpLayout` with DevEco `UxTestService` to produce JSON, issue coordinates, and marked images |
 | Copyable minimal project | Provides `references/templates/empty-ability-app` for HDC / `uitest dumpLayout` / screenshot smoke tests |
 
 ## Repository Overview
@@ -49,7 +50,7 @@ The goal is to turn those questions into local file lookups that are traceable, 
 | Empty Ability minimal project | Copyable HarmonyOS NEXT smoke fixture with defaults `com.example.emptyability` / `EntryAbility` / `5.0.0(12)` | [`references/templates/empty-ability-app`](./harmony-next/references/templates/empty-ability-app/) |
 | Minimal project scaffold guide | Explains copy, the decoupled route page and `SmokeCounter` component, `ohpm install`, `hvigorw --mode module`, SDK override validation, HDC launch, `uitest dumpLayout`, and click smoke validation | [`minimal-project-scaffold.md`](./harmony-next/references/quickStart/ets/minimal-project-scaffold.md) |
 | DevEco emulator private interfaces | Local validation boundaries for starting Emulator without the IDE, `hdc + uitest`, HVD, logs, and diagnostics | [`DevEco模拟器私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco模拟器私有接口与AI自动化.md) |
-| DevEco IDE private interfaces | Static validation boundaries for CodeGenie, local RAG/MCP, `devecostudio://`, Previewer, ArkUI Inspector, Profiler, Doctor, and UxTestService | [`DevEco Studio IDE私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco%20Studio%20IDE私有接口与AI自动化.md) |
+| DevEco IDE private interfaces | Validation boundaries for CodeGenie, local RAG/MCP, `devecostudio://`, Previewer, ArkUI Inspector, Profiler, Doctor, UxTestService, and offline UI/UX audits | [`DevEco Studio IDE私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco%20Studio%20IDE私有接口与AI自动化.md) |
 | Command Line Tools setup | Direct archive download, local archive install, PATH profile setup, and `codelinter -v` validation | [`commandline_tools_manager.py`](./harmony-next/scripts/commandline_tools_manager.py) |
 | Reference corpus | `3,693` Markdown files total, with `3,666` under `JsEtsAPIReference/` | [`harmony-next/references/`](./harmony-next/references/) |
 
@@ -92,6 +93,7 @@ The core principle is simple: find the path first, then read the content.
 - Command Line Tools can be installed with `python3 harmony-next/scripts/commandline_tools_manager.py install --archive <zip> --dest ~/.harmony/command-line-tools --profile auto`; for download, pass a direct archive URL copied from Huawei's download center to `bootstrap --url <archive-url>`, preferably with `--sha256`
 - Performance analysis and release workflows
 - DevEco Studio / HarmonyOS Emulator automation: launching without the IDE, HVD, multi-instance runs, `hdc`, `uitest`, `aa`, `bm`, `hilog`, and `hidumper`
+- Offline UI/UX audit: capture a running page screenshot and layout with `hdc` / `uitest`, then run the available static-rule subset in DevEco `UxTestService` to generate JSON reports and marked images; verified rules include hotspot size, icon size, icon clarity, status bar, navigation bar, occlusion, blur, hole adaptation, and page margin
 - Copy `references/templates/empty-ability-app` to generate a minimal Empty Ability fixture; the page exposes `smoke-increment` for `uitest dumpLayout`, screenshots, and log smoke checks
 - The route page and smoke component are decoupled: `pages/Index.ets` only mounts `SmokeCounter()`, while `components/SmokeCounter.ets` owns the smoke UI and state
 - Supports SDK override validation: for example, HarmonyOS 6.0.2 / API 22 builds with `6.0.2(22)`, `DEVECO_SDK_HOME=/Applications/DevEco-Studio.app/Contents/sdk`, and the app `icon`, Ability `icon`, and `startWindowIcon`
@@ -121,6 +123,7 @@ Usage rules:
 - Read the IDE private-interface chapter in [`harmony-next/SKILL.md`](./harmony-next/SKILL.md) first, then open [`DevEco Studio IDE私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco%20Studio%20IDE私有接口与AI自动化.md).
 - Default to static read-only analysis: plugin XML, jar class names, strings, config paths, and offline `.htrace` / faultlog / stacktrace / `.arkli` / `.preview` artifacts.
 - Starting the IDE/GUI/JCEF, local services, device connections, CodeGenie localhost endpoints, MCP config, external model calls, or reading user caches/chat history requires target, input, artifact-directory, and redaction-boundary records.
+- The `UxTestService` offline UI/UX audit is a verified implementable subset: use the real foreground `bundle_name`, `extend_infos.language="zh"`, and an external artifact directory. Do not promise rules that are listed in config but missing from the current package, and do not describe text-heavy rules returning `UTS.0306` under plain `uitest dumpLayout` capture as full coverage.
 
 ### Agent Engineering Integration
 

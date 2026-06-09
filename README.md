@@ -4,7 +4,7 @@
 
 语言：中文 | [English](./README_en.md)
 
-[![release](https://img.shields.io/badge/release-v1.3.22-1f6feb?style=flat-square)](https://github.com/linhay/harmony-next.skills/releases/tag/v1.3.22)
+[![release](https://img.shields.io/badge/release-v1.3.23-1f6feb?style=flat-square)](https://github.com/linhay/harmony-next.skills/releases/tag/v1.3.23)
 [![readme](https://img.shields.io/badge/readme-English-0f766e?style=flat-square)](./README_en.md)
 ![docs](https://img.shields.io/badge/docs-3,693%20markdown%20files-7c3aed?style=flat-square)
 ![js-ets](https://img.shields.io/badge/JsEtsAPIReference-3,666%20files-b45309?style=flat-square)
@@ -35,6 +35,7 @@
 | 不只 API 手册 | 还包含 IDE、签名、调试、发布、性能、多端与 NDK 实战指引 |
 | 私有接口隔离 | DevEco 模拟器与 IDE 本体私有未公开能力分别单独成章，默认先验证版本和风险门禁 |
 | 非交互自动化策略 | DevEco 模拟器自动化支持 `HARMONY_NEXT_AUTOMATION_POLICY`；策略是执行模式，不是授权门槛 |
+| 离线 UI/UX 体检 | 基于模拟器真实截图 + `uitest dumpLayout` 调用 DevEco `UxTestService`，输出 JSON、问题坐标和标注图 |
 | 可复制最小工程 | 提供 `references/templates/empty-ability-app`，用于 HDC / `uitest dumpLayout` / screenshot smoke |
 
 ## 内容概览
@@ -49,7 +50,7 @@
 | Empty Ability 最小工程 | 可复制到任意仓库的 HarmonyOS NEXT smoke fixture，默认 `com.example.emptyability` / `EntryAbility` / `5.0.0(12)` | [`references/templates/empty-ability-app`](./harmony-next/references/templates/empty-ability-app/) |
 | 最小工程脚手架指南 | 说明如何复制模板、路由页与 `SmokeCounter` 组件解耦、运行 `ohpm install`、`hvigorw --mode module`、SDK 版本适配验证、安装启动、`uitest dumpLayout` 和点击 smoke | [`minimal-project-scaffold.md`](./harmony-next/references/quickStart/ets/minimal-project-scaffold.md) |
 | DevEco 模拟器私有接口 | 免 IDE 启动 Emulator、`hdc + uitest`、HVD、日志与诊断的本地验证边界 | [`DevEco模拟器私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco模拟器私有接口与AI自动化.md) |
-| DevEco IDE 私有接口 | CodeGenie、本地 RAG/MCP、`devecostudio://`、Previewer、ArkUI Inspector、Profiler、Doctor、UxTestService 的静态验证边界 | [`DevEco Studio IDE私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco%20Studio%20IDE私有接口与AI自动化.md) |
+| DevEco IDE 私有接口 | CodeGenie、本地 RAG/MCP、`devecostudio://`、Previewer、ArkUI Inspector、Profiler、Doctor、UxTestService 与离线 UI/UX 体检的验证边界 | [`DevEco Studio IDE私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco%20Studio%20IDE私有接口与AI自动化.md) |
 | 命令行工具配置 | Command Line Tools 直链下载、本地压缩包安装、PATH 配置和 `codelinter -v` 校验 | [`commandline_tools_manager.py`](./harmony-next/scripts/commandline_tools_manager.py) |
 | 参考正文 | 共 `3,693` 份 Markdown，其中 `3,666` 份在 `JsEtsAPIReference/` | [`harmony-next/references/`](./harmony-next/references/) |
 
@@ -92,6 +93,7 @@ SKILL.md
 - Command Line Tools 可用 `python3 harmony-next/scripts/commandline_tools_manager.py install --archive <zip> --dest ~/.harmony/command-line-tools --profile auto` 解压并写入 shell profile；如需下载，传下载中心复制出的压缩包直链给 `bootstrap --url <archive-url>`，并建议附带 `--sha256`
 - 性能分析与发布流程
 - DevEco Studio / HarmonyOS Emulator 免 IDE 启动、HVD、多实例、`hdc`、`uitest`、`aa`、`bm`、`hilog`、`hidumper` 自动化诊断
+- 离线 UI/UX 体检：用 `hdc` / `uitest` 采集运行中页面截图与 layout，再调用 DevEco `UxTestService` 的可用静态规则子集生成 JSON 报告和标注图；已验证热区、图标尺寸、图标清晰度、状态栏、导航栏、遮挡、模糊、挖孔区和页面边距等规则
 - 复制 `references/templates/empty-ability-app` 生成最小 Empty Ability 测试工程；页面含 `smoke-increment` 节点，适合 `uitest dumpLayout`、截图和日志 smoke
 - 页面入口与 smoke 组件解耦：`pages/Index.ets` 只挂载 `SmokeCounter()`，测试 UI 与状态逻辑放在 `components/SmokeCounter.ets`
 - 支持 SDK 版本适配验证：例如 HarmonyOS 6.0.2 / API 22 使用 `6.0.2(22)` 构建，配合 `DEVECO_SDK_HOME=/Applications/DevEco-Studio.app/Contents/sdk`，并保留 app `icon`、Ability `icon` 与 `startWindowIcon`
@@ -121,6 +123,7 @@ SKILL.md
 - 先读 [`harmony-next/SKILL.md`](./harmony-next/SKILL.md) 的 IDE 私有接口章节，再读 [`DevEco Studio IDE私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco%20Studio%20IDE私有接口与AI自动化.md)。
 - 默认只做静态只读分析：插件 XML、jar 类名、字符串、配置路径、离线 `.htrace` / faultlog / stacktrace / `.arkli` / `.preview` 产物。
 - 启动 IDE/GUI/JCEF、本地服务、设备连接、CodeGenie localhost 接口、MCP 配置、外部模型请求、读取用户缓存或聊天历史时，记录目标、输入、产物目录和脱敏边界。
+- `UxTestService` 离线 UI/UX 体检已验证为可落地子集：必须使用真实前台 `bundle_name`、`extend_infos.language="zh"`，产物写到外部 artifact 目录；不要承诺配置文件中存在但当前包内缺实现文件的规则，也不要把仅 `uitest dumpLayout` 下返回 `UTS.0306` 的文本类规则写成完整覆盖。
 
 ### Agent 工程化集成
 

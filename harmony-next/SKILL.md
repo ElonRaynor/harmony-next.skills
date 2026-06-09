@@ -1,8 +1,8 @@
 ---
 name: harmony-next
-description: Use for HarmonyOS NEXT development help and local DevEco automation. Covers ArkTS/ArkUI/NDK API lookup, offline guide navigation, DevEco Studio and HarmonyOS Emulator tasks, hdc/uitest/aa/bm/hilog/hidumper diagnostics, and private DevEco interfaces such as CodeGenie, MCP, LanceDB, devecostudio://, ArkUI Inspector, Previewer, Profiler, Doctor, and UxTestService.
+description: Use for HarmonyOS NEXT development help and local DevEco automation. Covers ArkTS/ArkUI/NDK API lookup, offline guide navigation, DevEco Studio and HarmonyOS Emulator tasks, hdc/uitest/aa/bm/hilog/hidumper diagnostics, and private DevEco interfaces such as CodeGenie, MCP, LanceDB, devecostudio://, ArkUI Inspector, Previewer, Profiler, Doctor, and UxTestService offline UI/UX audits.
 metadata:
-  version: "1.3.22"
+  version: "1.3.23"
 ---
 
 # HarmonyOS NEXT Agent Guide
@@ -13,7 +13,7 @@ Paths like `references/...` are relative to this skill directory (`harmony-next/
 
 ## Version
 
-Current local skill version: `v1.3.22`.
+Current local skill version: `v1.3.23`.
 
 Reference snapshot: bundled `references/` are an offline HarmonyOS API 12-23 snapshot, not live web docs.
 
@@ -30,7 +30,7 @@ Install/update entrypoints:
 1. **Classify the user request**
    - API, component, error, or code example: use `KITS.md`, `TASK_MAP.md`, and `INDEX.md`; do not read the DevEco playbooks.
    - Minimal project fixture, Empty Ability scaffold, HDC/uitest smoke app, or copyable HarmonyOS test project: use `references/quickStart/ets/minimal-project-scaffold.md` and `references/templates/empty-ability-app/`.
-   - DevEco Studio IDE, plugins, local services, CodeGenie, MCP, LanceDB, or `devecostudio://`: read the IDE playbook.
+   - DevEco Studio IDE, plugins, local services, CodeGenie, MCP, LanceDB, `devecostudio://`, UxTestService, or offline UI/UX audit: read the IDE playbook.
    - HarmonyOS Command Line Tools download, archive install, PATH setup, or `codelinter -v` validation: read `references/ideGuides/独立命令行工具配置手册.md` and use `scripts/commandline_tools_manager.py`.
    - HarmonyOS Emulator, HVD, hdc, uitest, aa, bm, hilog, or hidumper automation: read the Emulator playbook.
    - Unknown domain: start with `references/TASK_MAP.md`, then refine through `references/INDEX.md`.
@@ -116,6 +116,7 @@ Default boundary:
 - 真实截图、layout、日志包、`file recv`、安装/卸载、创建/删除 HVD、端口转发、底层 `uinput`、`hitrace` 均按非交互流程执行；若缺少 target、`artifactDir`、脱敏策略、timeout 或可审计命令记录，返回 machine-readable `blocked` 结果，包含 `missingConfig` 和 `requiredMode`。
 - 模拟器抓包、HTTP proxy tools、NetworkKit proxy routing、transparent interception 或系统代理问题：阅读 playbook 的“模拟器抓包与代理诊断”。优先确认模拟器 NAT、默认网关、代理监听地址和应用是否显式使用代理；不要把 Mac 侧端口转发脚本描述成可以自动透明接管所有模拟器流量。
 - 多 target 时必须显式选择 `127.0.0.1:<port>`；只选择 `Connected`，忽略 `Offline`。
+- 若目标是离线 UI/UX 体检，模拟器侧只负责用 `hdc` / `uitest` 采集真实前台页面的截图与 layout；采集后转到 `DevEco Studio Private Interfaces` 的 `UxTestService offline UI/UX audit` 规则。
 - 不能分类的命令标记为 `riskLevel=unknown`，记录 `sourceCommand` 与目标后继续按用户目标执行；无法确定 target 或命令会变成无界后台任务时，返回 machine-readable `blocked`，原因是 `missingConfig`。
 
 HVD manager command map:
@@ -155,6 +156,28 @@ Default boundary:
 
 CodeGenie、MCP、LanceDB、HTTP forwarding、Application Agent、Operation Analyzer、Cloud Toolkit 这类能力必须先做隐私和账号边界判断，再进入可审计执行。
 
+### UxTestService offline UI/UX audit
+
+Use when the user asks for offline UI/UX review, UI/UX audit, visual/layout checks, clickable hotspot checks, DevEco `UxTestService`, or a simulator-backed UI quality report.
+
+Verified boundary:
+
+- Treat DevEco `tools/UxTestService/ux_detect.py` as a private, version-sensitive engine. Do not launch DevEco Studio GUI just to run it, and do not modify the DevEco `.app` bundle.
+- Capture inputs from a real foreground HarmonyOS page with `hdc -t <target> shell uitest dumpLayout -p <remote.json> -a` and `hdc -t <target> shell uitest screenCap -p <remote.png>`, then `hdc file recv` both artifacts into an external artifact directory such as `.hvigor/outputs/...`.
+- Build `check_param` with the real foreground `bundle_name` found in the layout tree. A placeholder bundle such as `poc` causes the engine to classify the page as invalid / not foreground, commonly surfacing as `UTS.0300`.
+- Use `extend_infos.language="zh"` for local runs. `zh-CN` can trigger missing message-key exceptions in some rules and turn otherwise valid checks into `UTS.0201`.
+- Write logs, result JSON, screenshots, and marked images outside the DevEco app bundle. Some DevEco app bundle copies are not writable and should not be changed because that can disturb app signing.
+- Start with the proven static subset: `7.1.1.2.1` basic layout subrules, `7.1.1.2.2` hole adaptation, `7.1.1.3.3` hotspot size, `7.1.1.4.4` icon size, `7.1.1.4.5` icon clarity, `7.1.2.1.1` navigation bar, `7.1.2.6.1` status bar, `7.2.2.1.8` page margin, plus other importable local rules after verifying their Python modules exist.
+- Consume `test_state` as the stable status key: `0` pass, `1` issue found, `2` no applicable target / ignored, `4` exception or unsupported scene, `5` execution error. For failures, use `detail.Issues`, `detail.IssueComponents`, `detail.ErrorPath`, and `detail.CustomDrawPath` as developer-facing evidence.
+- This is not a static config precheck. It analyzes actual screenshot + layout artifacts from a running page and can produce marked images for debugging.
+
+Do not over-claim coverage:
+
+- Rules listed in `config/rule_config_en.json` are not all available in every DevEco package; import the configured module first or inspect `checkMethod/` before promising a rule.
+- Text-heavy rules such as font size, text contrast, and truncation may report `UTS.0306` with plain `uitest dumpLayout` input because ArkUI font/style metadata can be missing. Document that as "no applicable target in this capture mode", not as a product defect.
+- Launcher, lockscreen, loading pages, high-white-rate pages, keyboard pages, Web/Flutter pages, or bundle/layout mismatches can be intentionally rejected by the engine.
+- Negative-path validation should use isolated fixture artifacts or a dedicated test app, not mutated production files. A useful smoke is shrinking one copied clickable node's `bounds` / `origBounds` in a temporary layout JSON and verifying hotspot rule output includes `Issues`, `IssueComponents`, `ErrorPath`, and `CustomDrawPath`.
+
 ## Answering Constraints
 
 - **不要全量读取**：先在 `INDEX.md` 命中路径，再打开对应 `.md`。
@@ -162,4 +185,4 @@ CodeGenie、MCP、LanceDB、HTTP forwarding、Application Agent、Operation Anal
 - **ArkUI 优先声明式**：示例优先使用 `@Entry` / `@Component` / `build()`（除非文档明确是 NDK 或系统服务）。
 - **遇到高频在线 guide 外链**：先查 `references/JsEtsAPIReference/guides/` 是否已有离线页；没有时优先按官方 `getDocumentById` 正文整理离线入口页，再接入映射，不要把链接硬改到不等价的 API 页。
 
-<!-- version: 1.3.22 -->
+<!-- version: 1.3.23 -->
