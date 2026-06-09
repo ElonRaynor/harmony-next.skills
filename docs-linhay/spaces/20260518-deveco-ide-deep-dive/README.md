@@ -16,7 +16,9 @@
 
 ## 当前环境
 
-- DevEco Studio：`/Applications/DevEco-Studio.app`
+- 固定研究副本：`/Users/linhey/Desktop/linhay-open-sources/harmony-next.skills/inputs/DevEco-Studio.app`
+- 固定研究根：`/Users/linhey/Desktop/linhay-open-sources/harmony-next.skills/inputs/DevEco-Studio.app/Contents`
+- 历史安装路径：`/Applications/DevEco-Studio.app`，当前不再作为研究对象，避免触发签名或本机安装状态变化。
 - Bundle ID：`com.huawei.devecostudio.ds`
 - 版本：`6.0.2`
 - Build：`DS-243.24978.46.36.602642`
@@ -102,6 +104,9 @@
 
 ## 已整合产物
 
+- `docs-linhay/spaces/20260518-deveco-ide-deep-dive/2026-06-09-static-research-ledger.md`
+- `docs-linhay/spaces/20260518-deveco-ide-deep-dive/2026-06-09-round5-subagent-returns.md`
+- `docs-linhay/spaces/20260518-deveco-ide-deep-dive/capability-index.md`
 - `harmony-next/references/ideGuides/DevEco Studio IDE私有接口与AI自动化.md`
 - `harmony-next/SKILL.md`
 - `harmony-next/references/TASK_MAP.md`
@@ -151,10 +156,13 @@
 当前只允许默认只读命令：
 
 ```bash
-find /Applications/DevEco-Studio.app/Contents -maxdepth 3 -type f
-plutil -p /Applications/DevEco-Studio.app/Contents/Info.plist
-find /Applications/DevEco-Studio.app/Contents/plugins -maxdepth 2 -type d
-rg -n "<keyword>" /Applications/DevEco-Studio.app/Contents/plugins
+ROOT=/Users/linhey/Desktop/linhay-open-sources/harmony-next.skills/inputs/DevEco-Studio.app/Contents
+find "$ROOT" -maxdepth 3 -type f
+plutil -p "$ROOT/Info.plist"
+find "$ROOT/plugins" -maxdepth 2 -type d
+rg -n "<keyword>" "$ROOT/plugins"
+zipinfo "$ROOT/plugins/<plugin>/lib/<file>.jar"
+unzip -p "$ROOT/plugins/<plugin>/lib/<file>.jar" META-INF/plugin.xml
 ```
 
 执行任何可能启动服务、连接设备、写缓存、写项目、打开 GUI 或采集真实数据的命令前，需要先升级到用户确认档。
