@@ -410,6 +410,25 @@ hdc -t <target> shell netstat -ant
 
 若打开测试页面后，设备侧 `netstat` 显示从模拟器 IP 直接连接目标站点的 `:80` 或 `:443`，且没有连接代理端口，则说明调试目标应用或系统组件没有走代理。
 
+### DevEco/Emulator 自带代理入口的边界
+
+DevEco Studio 6.1.1 / HarmonyOS Emulator 6.1.1.200 暴露了两类容易被误读的代理入口：
+
+- `Emulator -http_proxy <url>` 只出现在 `-imageList`、`-install`、`-screenProfileList` 和 `-config` 这类宿主侧管理命令上。二进制字符串显示它会进入 `InputParametersParser::ApplyNetworkProxyEnvironment()`，并在下载镜像或访问远端元数据失败时提示 `Please check your network or use -http_proxy to configure a proxy`。这应归类为管理器代理或下载代理，不等于已经启动的 guest 业务流量代理。
+- Emulator UI 里存在 `networkProxyPanel` / `WidgetNetworkProxy`，支持 `use.ide.proxy`、`manual.proxy.configuration`、`no.proxy`、SOCKS、认证、DNS 和连接测试。二进制字符串显示它会调用 `WidgetNetworkProxy::SetNetworkProxyAndSendRequest()` / `SendProxySettingsToAgent()` / `ApplyProxySettings()` / `ApplyDnsSettings()`，说明 UI 可能通过私有 agent 把代理配置发送进 guest。该入口尚未验证为稳定 CLI，也不应等同于透明抓取所有 TCP/TLS 流量。
+
+只读运行态可用以下证据区分代理层级：
+
+```bash
+Emulator -help | grep -A20 http_proxy
+strings -a "$EMULATOR" | grep -i -E 'WidgetNetworkProxy|ApplyNetworkProxyEnvironment|proxy-settings.ini'
+hdc -t <target> shell param get | grep -i proxy
+hdc -t <target> shell netstat -ant
+lsof -Pan -p <emulator-pid> -i
+```
+
+若 `param get` 没有默认代理配置，`netstat` 和宿主 `lsof` 仍显示 guest 通过 QEMU/slirp 直接连接外部 IP，而不是连接 `10.0.2.2:<proxy-port>` 或抓包工具端口，则说明当前流量没有走显式代理。
+
 ### 可稳定使用的方案
 
 应用级代理是最稳定的调试入口。对 `@kit.NetworkKit` 的 HTTP 请求，调试目标应用应显式设置应用代理，并在请求参数中启用代理：
@@ -430,6 +449,16 @@ request.request(url, {
 ```
 
 WebSocket、RCP、下载组件、Socket/TLSSocket 等网络栈各有自己的代理配置项；不要假设设置 HTTP 请求后能覆盖所有网络调用。HTTPS 明文抓包还需要让调试目标应用信任抓包工具 CA；如果启用了 certificate pinning，需要在调试构建中关闭或替换对应 pin。
+
+证书信任和代理路由要分开处理。HarmonyOS SDK 暴露了 `certificateManagerDialog.openInstallCertificateDialog` 与 `certificateManager.installUserTrustedCertificateSync`，说明平台存在安装用户信任 CA 的能力；但这些入口受 `ACCESS_CERT_MANAGER`、`ACCESS_USER_TRUSTED_CERT` 或企业证书权限限制，并可能受设备安全策略影响。普通三方调试应用不应默认能静默安装全局 CA。
+
+对调试目标应用，NetworkKit HTTP 请求可用 `HttpRequestOptions.caPath` 或 `caData` 指定抓包工具 CA，其中 `caPath` 目前要求 `.pem` 文本证书路径，`caData` 传入 `.pem` 证书内容。该方式只影响对应 HTTP 请求，不等于系统全局安装证书。
+
+因此不要把 HarmonyOS Emulator 写成 iOS 模拟器式的一步流程。当前可验证的抓包链路是：
+
+1. 让目标网络栈显式走 `10.0.2.2:<proxy-port>` 或 Emulator UI 已验证的系统代理。
+2. 让同一网络栈信任抓包 CA，优先使用调试构建里的 `caPath` / `caData` 或对应框架的证书配置。
+3. 若目标启用 certificate pinning，在调试构建关闭或替换 pin。
 
 ### 不能透明接管全部流量的方案
 

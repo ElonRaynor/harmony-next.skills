@@ -263,6 +263,12 @@ class SkillMetadataTests(unittest.TestCase):
             "usingProxy: true",
             "Mac 侧中转脚本",
             "不能透明接管全部流量",
+            "Emulator -http_proxy",
+            "WidgetNetworkProxy",
+            "管理器代理",
+            "certificateManagerDialog",
+            "caData",
+            "iOS 模拟器式",
             "VpnExtension",
             "调试目标应用",
         ]
