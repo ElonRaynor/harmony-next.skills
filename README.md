@@ -52,6 +52,7 @@
 | DevEco 模拟器私有接口 | 免 IDE 启动 Emulator、`hdc + uitest`、HVD、日志与诊断的本地验证边界 | [`DevEco模拟器私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco模拟器私有接口与AI自动化.md) |
 | DevEco IDE 私有接口 | CodeGenie、本地 RAG/MCP、`devecostudio://`、Previewer、ArkUI Inspector、Profiler、Doctor、UxTestService 与离线 UI/UX 体检的验证边界 | [`DevEco Studio IDE私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco%20Studio%20IDE私有接口与AI自动化.md) |
 | 命令行工具配置 | Command Line Tools 直链下载、本地压缩包安装、PATH 配置和 `codelinter -v` 校验 | [`commandline_tools_manager.py`](./harmony-next/scripts/commandline_tools_manager.py) |
+| 离线 Trace 性能证据审计 | 调用 DevEco `trace_streamer` 将 `.ftrace/.htrace` 等 trace 转 SQLite，并导出耗时 span、阈值命中和元数据 JSON | [`profiler_trace_audit.py`](./harmony-next/scripts/profiler_trace_audit.py) |
 | 参考正文 | 共 `3,693` 份 Markdown，其中 `3,666` 份在 `JsEtsAPIReference/` | [`harmony-next/references/`](./harmony-next/references/) |
 
 ## 推荐检索路径
@@ -92,6 +93,7 @@ SKILL.md
 - 独立命令行工具链与 CI/CD 集成
 - Command Line Tools 可用 `python3 harmony-next/scripts/commandline_tools_manager.py install --archive <zip> --dest ~/.harmony/command-line-tools --profile auto` 解压并写入 shell profile；如需下载，传下载中心复制出的压缩包直链给 `bootstrap --url <archive-url>`，并建议附带 `--sha256`
 - 性能分析与发布流程
+- 离线 Trace 性能证据审计：已有 `.ftrace/.htrace` / bytrace / rawtrace 文件时，使用 `python3 harmony-next/scripts/profiler_trace_audit.py audit --deveco-app <DevEco-Studio.app> --input <trace> --output-dir .hvigor/outputs/<run> --json` 生成 SQLite、`summary.json`、top callstack 和 `16.67ms / 33.34ms` 阈值命中报告
 - DevEco Studio / HarmonyOS Emulator 免 IDE 启动、HVD、多实例、`hdc`、`uitest`、`aa`、`bm`、`hilog`、`hidumper` 自动化诊断
 - 离线 UI/UX 体检：用 `hdc` / `uitest` 采集运行中页面截图与 layout，再调用 DevEco `UxTestService` 的可用静态规则子集生成 JSON 报告和标注图；已验证热区、图标尺寸、图标清晰度、状态栏、导航栏、遮挡、模糊、挖孔区和页面边距等规则
 - 复制 `references/templates/empty-ability-app` 生成最小 Empty Ability 测试工程；页面含 `smoke-increment` 节点，适合 `uitest dumpLayout`、截图和日志 smoke
@@ -123,6 +125,7 @@ SKILL.md
 - 先读 [`harmony-next/SKILL.md`](./harmony-next/SKILL.md) 的 IDE 私有接口章节，再读 [`DevEco Studio IDE私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco%20Studio%20IDE私有接口与AI自动化.md)。
 - 默认只做静态只读分析：插件 XML、jar 类名、字符串、配置路径、离线 `.htrace` / faultlog / stacktrace / `.arkli` / `.preview` 产物。
 - 启动 IDE/GUI/JCEF、本地服务、设备连接、CodeGenie localhost 接口、MCP 配置、外部模型请求、读取用户缓存或聊天历史时，记录目标、输入、产物目录和脱敏边界。
+- `profiler_trace_audit.py` 仅覆盖已验证的离线 trace 转换与 SQLite/JSON 摘要；不要把它描述成 DevEco Profiler GUI 的 headless 导入，也不要把设备采集能力写成已验证。
 - `UxTestService` 离线 UI/UX 体检已验证为可落地子集：必须使用真实前台 `bundle_name`、`extend_infos.language="zh"`，产物写到外部 artifact 目录；不要承诺配置文件中存在但当前包内缺实现文件的规则，也不要把仅 `uitest dumpLayout` 下返回 `UTS.0306` 的文本类规则写成完整覆盖。
 
 ### Agent 工程化集成
@@ -191,6 +194,7 @@ ln -s "$(pwd)/harmony-next.skills/harmony-next" "$HOME/.agents/skills/harmony-ne
 | 版本 | 重点变化 |
 | --- | --- |
 | `v1.3.7` | 新增可复制 HarmonyOS NEXT Empty Ability 最小测试工程模板：`references/templates/empty-ability-app`；默认 `com.example.emptyability` / `EntryAbility` / `5.0.0(12)`，补充 SDK 版本适配验证（含 `6.0.2(22)` / `DEVECO_SDK_HOME=/Applications/DevEco-Studio.app/Contents/sdk`）、`ohpm install`、`hvigorw --mode module`、HDC 启动、`uitest dumpLayout` 和 `uitest uiInput click` smoke 能力 |
+| `Unreleased` | 新增 `profiler_trace_audit.py` 离线 Trace 性能证据审计脚本：定位 DevEco `trace_streamer`，将已有 `.ftrace/.htrace` / bytrace / rawtrace 转 SQLite，并输出 `summary.json`、top callstack、trace 元数据、frame slice 摘要和长 span 阈值命中；脚本拒绝把产物写入 `.app` 包内 |
 | `Unreleased` | DevEco Emulator CLI 启动补充 trace socket 守护入口：`hvd_manager.py launch-preflight` 只输出带 `-t <trace-name>` 的命令计划，`hvd_manager.py launch` 创建 trace socket、detach Emulator 与 trace holder 后启动；启动前按 HVD `imageSubPath` 校验 emulator image root，区分 build SDK root 与 `~/Library/Huawei/Sdk`；启动失败/超时时返回退出码、日志路径、HDC 快照、HVD 运行态和稳定性检查等 machine-readable 诊断；首次运行许可协议提示会分类为 `license-agreement-required`，并提供显式 `--accept-license` opt-in；文档新增 attached 终端托管生命周期核查表，指导后续将终端结束与 `Emulator -stop` 清理绑定 |
 | `Unreleased` | Release 产物改为 `harmony-next.skill.zip`，包内新增 `BUILD_INFO.json` 记录版本、release tag 与 git commit，并新增 `ISSUE_GUIDE.md` 指导 agent 复现、脱敏、分类和提交仓库 issue |
 | `v1.3.6` | DevEco 模拟器 playbook 新增非交互自动化策略：用户默认拥有完整权限，`policy` 仅表示执行模式；支持 `readonly/evidence/automation/diagnostic/break-glass`、artifact 目录、脱敏元数据与 machine-readable blocked 输出 |

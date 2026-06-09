@@ -65,12 +65,14 @@ Use these script-backed skill entries before hand-writing DevEco setup commands.
 | --- | --- | --- | --- |
 | Download, install, configure, or validate HarmonyOS Command Line Tools | `commandline_tools_manager.py` | `python3 harmony-next/scripts/commandline_tools_manager.py doctor --tools-root <dir> --json` | If the user gives a Huawei download center page URL, return the script's blocked result and ask the user to log in, copy the direct archive URL, or provide a local archive. |
 | List, clone, delete, diagnose, or launch local DevEco HVD instances | `hvd_manager.py` | `python3 harmony-next/scripts/hvd_manager.py doctor --json` | If HVD root, Emulator, SDK/image root, or trace startup data is missing, report the `issues`, `recommendations`, and `missingConfig` fields and ask the user to pass `--root`, `--emulator`, `--sdk-root` / `--image-root`, or matching env vars. |
+| Convert offline DevEco Profiler trace files into SQLite evidence summaries | `profiler_trace_audit.py` | `python3 harmony-next/scripts/profiler_trace_audit.py doctor --deveco-app <DevEco-Studio.app> --json` | If `trace_streamer` or the input trace is missing, report the machine-readable `blocked` payload. Use `audit --input <trace> --output-dir .hvigor/outputs/<run> --json` only for existing `.ftrace` / `.htrace` / bytrace / rawtrace artifacts. |
 
 Boundaries:
 
 - `commandline_tools_manager.py` may download only a direct archive URL; a download center page URL is a login-gated page, not an archive.
 - `hvd_manager.py launch-preflight` prints a guarded Emulator command plan when an external trace helper is already ready.
 - `hvd_manager.py launch` currently creates a startup trace socket, detaches Emulator and a trace holder, starts Emulator with `-t <trace-name>`, and waits for HDC/boot/stability unless `--no-wait-target` is passed.
+- `profiler_trace_audit.py` is offline only: it runs DevEco `trace_streamer`, writes SQLite/JSON artifacts outside the DevEco `.app` bundle, and does not launch DevEco Studio, connect devices, or claim GUI Profiler headless import.
 - Lifecycle direction: prefer an attached terminal-scoped launch mode for future CLI work, where the foreground runner owns the trace socket, waits for readiness, and calls `Emulator -stop <hvd-name> -path <hvd-root>` when the terminal session ends; keep detached mode only as an explicit compatibility path.
 - `hvd_manager.py download-image` reports HVD image download as machine-readable `blocked`; current verified path is DevEco Studio SDK Manager UI, not a stable non-UI CLI.
 - For cross-machine support, prefer `doctor --json` output over hard-coded macOS paths in answers and docs.
@@ -177,6 +179,19 @@ Do not over-claim coverage:
 - Text-heavy rules such as font size, text contrast, and truncation may report `UTS.0306` with plain `uitest dumpLayout` input because ArkUI font/style metadata can be missing. Document that as "no applicable target in this capture mode", not as a product defect.
 - Launcher, lockscreen, loading pages, high-white-rate pages, keyboard pages, Web/Flutter pages, or bundle/layout mismatches can be intentionally rejected by the engine.
 - Negative-path validation should use isolated fixture artifacts or a dedicated test app, not mutated production files. A useful smoke is shrinking one copied clickable node's `bounds` / `origBounds` in a temporary layout JSON and verifying hotspot rule output includes `Issues`, `IssueComponents`, `ErrorPath`, and `CustomDrawPath`.
+
+### Profiler trace offline evidence audit
+
+Use when the user has an existing HarmonyOS Profiler / bytrace / htrace / ftrace / rawtrace artifact and wants offline performance evidence, long-span summaries, or a machine-readable report without opening DevEco Studio.
+
+Verified boundary:
+
+- Use `scripts/profiler_trace_audit.py`; start with `doctor --json` to locate DevEco `tools/profiler/dic_server/trace_streamer`.
+- `audit --input <trace> --output-dir .hvigor/outputs/<run> --json` converts the trace to SQLite via `trace_streamer -e`, then writes `summary.json`, `tables.txt`, `meta.json`, `trace_range.json`, `counts.json`, `top_callstack.json`, threshold span JSON files, and `frame_slice.json`.
+- Default thresholds are `16.67ms` and `33.34ms`; pass repeated `--threshold-ms` flags for stricter or looser budgets.
+- Keep outputs outside any `.app` bundle. The script refuses output paths inside `.app` directories to avoid disturbing DevEco app signatures or bundled files.
+- This is a verified CLI wrapper around `trace_streamer`, not a headless DevEco Profiler GUI import path. Do not claim timeline UI features, IDE session import, or device trace capture unless separately verified on a connected target.
+- Prefer existing real traces for product diagnosis. Synthetic traces only prove the conversion/query loop and should be labeled as smoke evidence.
 
 ## Answering Constraints
 
