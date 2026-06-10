@@ -236,6 +236,14 @@ python3 -m unittest discover -s harmony-next/tests -p 'test_*.py' -v
 | 更易追溯 | 每个答案都能落回具体 Markdown 文件 |
 | 更适合自动化 | 有索引、有规则、有校验，适合长期接入 Agent 工作流 |
 
+## Star 增长趋势
+
+[![Star History Chart](https://api.star-history.com/svg?repos=linhay/harmony-next.skills&type=Date)](https://www.star-history.com/#linhay/harmony-next.skills&Date)
+
+## 致谢
+
+感谢 [LINUX DO](https://linux.do/)。
+
 ## 来源与许可
 
 - 数据源：华为 HarmonyOS 官方文档

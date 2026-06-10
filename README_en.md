@@ -236,6 +236,14 @@ Command roles:
 | Better traceability | Every answer can point back to a concrete Markdown file |
 | Better automation fit | Indexes, rules, and validation make it suitable for long-term agent workflows |
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=linhay/harmony-next.skills&type=Date)](https://www.star-history.com/#linhay/harmony-next.skills&Date)
+
+## Acknowledgements
+
+Thanks to [LINUX DO](https://linux.do/).
+
 ## Source and License
 
 - Source: Huawei HarmonyOS official documentation
