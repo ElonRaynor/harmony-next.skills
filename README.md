@@ -52,6 +52,8 @@
 | DevEco 模拟器私有接口 | 免 IDE 启动 Emulator、`hdc + uitest`、HVD、日志与诊断的本地验证边界 | [`DevEco模拟器私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco模拟器私有接口与AI自动化.md) |
 | DevEco IDE 私有接口 | CodeGenie、本地 RAG/MCP、`devecostudio://`、Previewer、ArkUI Inspector、Profiler、Doctor、UxTestService 与离线 UI/UX 体检的验证边界 | [`DevEco Studio IDE私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco%20Studio%20IDE私有接口与AI自动化.md) |
 | 命令行工具配置 | Command Line Tools 直链下载、本地压缩包安装、PATH 配置和 `codelinter -v` 校验 | [`commandline_tools_manager.py`](./harmony-next/scripts/commandline_tools_manager.py) |
+| 设备调试证据包 | 用 `hdc` 有界采集 boot 状态、`bm/aa` 摘要、短日志、layout、截图和命令审计账本 | [`device_evidence_bundle.py`](./harmony-next/scripts/device_evidence_bundle.py) |
+| 一键离线 UI/UX 体检 | 串联 `hdc` 证据采集与 DevEco `UxTestService`，输出 `summary.json`、`report.md`、规则结果和标注图 | [`ux_audit_pipeline.py`](./harmony-next/scripts/ux_audit_pipeline.py) |
 | 离线 Trace 性能证据审计 | 调用 DevEco `trace_streamer` 将 `.ftrace/.htrace` 等 trace 转 SQLite，并导出耗时 span、阈值命中和元数据 JSON | [`profiler_trace_audit.py`](./harmony-next/scripts/profiler_trace_audit.py) |
 | 参考正文 | 共 `3,693` 份 Markdown，其中 `3,666` 份在 `JsEtsAPIReference/` | [`harmony-next/references/`](./harmony-next/references/) |
 
@@ -93,6 +95,8 @@ SKILL.md
 - 独立命令行工具链与 CI/CD 集成
 - Command Line Tools 可用 `python3 harmony-next/scripts/commandline_tools_manager.py install --archive <zip> --dest ~/.harmony/command-line-tools --profile auto` 解压并写入 shell profile；如需下载，传下载中心复制出的压缩包直链给 `bootstrap --url <archive-url>`，并建议附带 `--sha256`
 - 性能分析与发布流程
+- 设备调试证据包：用 `python3 harmony-next/scripts/device_evidence_bundle.py capture --deveco-app <DevEco-Studio.app> --target <target> --artifact-dir .hvigor/outputs/<run> --json` 采集真实 layout、截图、短 `hilog`、`bm/aa` 摘要和命令账本，可作为 UI/UX 体检、日志排查或复现报告输入
+- 一键离线 UI/UX 体检：先用 `python3 harmony-next/scripts/ux_audit_pipeline.py doctor --deveco-app <DevEco-Studio.app> --python <python-with-ux-deps> --json` 检查 `hdc`、`UxTestService` 和 Python 图像依赖，再用 `python3 harmony-next/scripts/ux_audit_pipeline.py capture-audit --deveco-app <DevEco-Studio.app> --python <python-with-ux-deps> --target <target> --artifact-dir .hvigor/outputs/<run> --json` 生成报告
 - 离线 Trace 性能证据审计：已有 `.ftrace/.htrace` / bytrace / rawtrace 文件时，使用 `python3 harmony-next/scripts/profiler_trace_audit.py audit --deveco-app <DevEco-Studio.app> --input <trace> --output-dir .hvigor/outputs/<run> --json` 生成 SQLite、`summary.json`、top callstack 和 `16.67ms / 33.34ms` 阈值命中报告
 - DevEco Studio / HarmonyOS Emulator 免 IDE 启动、HVD、多实例、`hdc`、`uitest`、`aa`、`bm`、`hilog`、`hidumper` 自动化诊断
 - 离线 UI/UX 体检：用 `hdc` / `uitest` 采集运行中页面截图与 layout，再调用 DevEco `UxTestService` 的可用静态规则子集生成 JSON 报告和标注图；已验证热区、图标尺寸、图标清晰度、状态栏、导航栏、遮挡、模糊、挖孔区和页面边距等规则
@@ -111,6 +115,10 @@ SKILL.md
 - 每次执行前重新验证当前 DevEco / Emulator / SDK 版本和命令能力。
 - 用户默认拥有完整执行权限；长时间自动化可用 `HARMONY_NEXT_AUTOMATION_POLICY`、`--policy` 或 `.harmony-next-policy.json` 描述执行模式、产物目录和脱敏契约。
 - 真实截图、layout、日志包、安装卸载、端口转发、HVD 创建/删除等动作按非交互流程执行；缺少 target、artifact 目录、脱敏策略或 timeout 时才返回 machine-readable blocked 结果。
+- `device_evidence_bundle.py` 已验证为可落地证据采集入口：不会启动 DevEco Studio，也不会安装、卸载、启动或停止应用；产物可能包含真实 UI、bundle、ability 和日志内容，分享前需要审阅或脱敏。
+- `ux_audit_pipeline.py` 已验证为一键体检入口：运行前用 `doctor` 检查 Python 依赖，执行时把 `tools/UxTestService` 复制到 artifact-local runtime，避免向 DevEco `.app` 内写 `uxlog`。
+- 如果上述 wrapper 返回 `blocked`，agent 应优先尝试官方 CLI 证据路径：`hdc list targets -v`、`uitest dumpLayout`、`screenCap`、`file recv`、`bm dump`、`aa dump` 和有界 `hilog`，再用采集到的 layout/screenshot 重跑离线 audit。
+- 如果 wrapper 被阻塞、输出误导、DevEco/设备版本不兼容或缺少工作流，agent 应建议用户按脚本输出里的 `feedback` 字段和 [`ISSUE_GUIDE.md`](./harmony-next/ISSUE_GUIDE.md) 选择对应场景模板，脱敏后反馈到 GitHub Issues。
 - 本仓库提供 `python3 harmony-next/scripts/hvd_manager.py`：支持 `doctor` 环境探测、`list`、`create`、`delete`、`launch-preflight` 和 `launch`。
 - HVD 启动适配：`--root` / `HARMONY_HVD_ROOT` 指定 HVD root，`--emulator` / `HARMONY_EMULATOR` 指定 Emulator，`--image-root` / `HARMONY_EMULATOR_IMAGE_ROOT` 指定模拟器镜像根，`--hdc` / `HARMONY_HDC` 指定 HDC。`--sdk-root` / `DEVECO_SDK_HOME` 只表示 DevEco build SDK root，不等同于模拟器镜像根。
 - macOS 常见镜像根是 `~/Library/Huawei/Sdk`；脚本会用 HVD `imageSubPath` 校验系统镜像。当前 `launch` 会 detach Emulator 与 trace holder，等待 HDC、boot 和稳定性检查；首次运行 Emulator 遇到华为许可协议确认时返回 `result=license-agreement-required` / `missingConfig=["emulatorLicenseAgreement"]`，只有显式传入 `--accept-license` 才会向 Emulator stdin 写入 `y`。后续生命周期模型应补齐 attached 终端托管模式，让终端结束时通过 `Emulator -stop` 回收模拟器，并保留 detached 兼容模式。`download-image` 当前只返回 blocked，因为镜像下载仅确认到 IDE SDK Manager UI 入口。
@@ -126,7 +134,7 @@ SKILL.md
 - 默认只做静态只读分析：插件 XML、jar 类名、字符串、配置路径、离线 `.htrace` / faultlog / stacktrace / `.arkli` / `.preview` 产物。
 - 启动 IDE/GUI/JCEF、本地服务、设备连接、CodeGenie localhost 接口、MCP 配置、外部模型请求、读取用户缓存或聊天历史时，记录目标、输入、产物目录和脱敏边界。
 - `profiler_trace_audit.py` 仅覆盖已验证的离线 trace 转换与 SQLite/JSON 摘要；不要把它描述成 DevEco Profiler GUI 的 headless 导入，也不要把设备采集能力写成已验证。
-- `UxTestService` 离线 UI/UX 体检已验证为可落地子集：必须使用真实前台 `bundle_name`、`extend_infos.language="zh"`，产物写到外部 artifact 目录；不要承诺配置文件中存在但当前包内缺实现文件的规则，也不要把仅 `uitest dumpLayout` 下返回 `UTS.0306` 的文本类规则写成完整覆盖。
+- `UxTestService` 离线 UI/UX 体检已验证为可落地子集：优先使用 `ux_audit_pipeline.py capture-audit`；必须使用真实前台 `bundle_name`、`extend_infos.language="zh"`，产物写到外部 artifact 目录；不要承诺配置文件中存在但当前包内缺实现文件的规则，也不要把仅 `uitest dumpLayout` 下返回 `UTS.0306` 的文本类规则写成完整覆盖。
 
 ### Agent 工程化集成
 
@@ -194,6 +202,9 @@ ln -s "$(pwd)/harmony-next.skills/harmony-next" "$HOME/.agents/skills/harmony-ne
 | 版本 | 重点变化 |
 | --- | --- |
 | `v1.3.7` | 新增可复制 HarmonyOS NEXT Empty Ability 最小测试工程模板：`references/templates/empty-ability-app`；默认 `com.example.emptyability` / `EntryAbility` / `5.0.0(12)`，补充 SDK 版本适配验证（含 `6.0.2(22)` / `DEVECO_SDK_HOME=/Applications/DevEco-Studio.app/Contents/sdk`）、`ohpm install`、`hvigorw --mode module`、HDC 启动、`uitest dumpLayout` 和 `uitest uiInput click` smoke 能力 |
+| `Unreleased` | 新增 `ux_audit_pipeline.py` 一键离线 UI/UX 体检 CLI：先用 `doctor` 检查 `hdc`、`UxTestService` 和 Python 图像依赖，再执行 `capture-audit` 采集 layout/screenshot/log 证据、推断真实前台 bundle、运行 DevEco `UxTestService` 并输出 `summary.json`、`ux_summary.json`、`report.md`；真实模拟器 smoke 已产出 7 pass、1 issue、3 ignored 的报告 |
+| `Unreleased` | 新增 `device_evidence_bundle.py` 设备调试证据包 CLI：定位 `hdc`、处理单/多 target、采集 boot 状态、debug bundle、`aa` 运行态、短 `hilog`、`uitest dumpLayout`、截图和 command ledger；真实模拟器 smoke 已采到 layout/screenshot/log 证据并输出 `summary.json` |
+| `Unreleased` | 新增本地审计反馈机制：`device_evidence_bundle.py` 与 `ux_audit_pipeline.py` 的 JSON 输出包含 `feedback` 字段，`report.md` 追加反馈说明，并新增按场景拆分的 GitHub Issue 表单，指导用户脱敏提交 blocked、误判、版本不兼容和缺失工作流 |
 | `Unreleased` | 新增 `profiler_trace_audit.py` 离线 Trace 性能证据审计脚本：定位 DevEco `trace_streamer`，将已有 `.ftrace/.htrace` / bytrace / rawtrace 转 SQLite，并输出 `summary.json`、top callstack、trace 元数据、frame slice 摘要和长 span 阈值命中；脚本拒绝把产物写入 `.app` 包内 |
 | `Unreleased` | DevEco Emulator CLI 启动补充 trace socket 守护入口：`hvd_manager.py launch-preflight` 只输出带 `-t <trace-name>` 的命令计划，`hvd_manager.py launch` 创建 trace socket、detach Emulator 与 trace holder 后启动；启动前按 HVD `imageSubPath` 校验 emulator image root，区分 build SDK root 与 `~/Library/Huawei/Sdk`；启动失败/超时时返回退出码、日志路径、HDC 快照、HVD 运行态和稳定性检查等 machine-readable 诊断；首次运行许可协议提示会分类为 `license-agreement-required`，并提供显式 `--accept-license` opt-in；文档新增 attached 终端托管生命周期核查表，指导后续将终端结束与 `Emulator -stop` 清理绑定 |
 | `Unreleased` | Release 产物改为 `harmony-next.skill.zip`，包内新增 `BUILD_INFO.json` 记录版本、release tag 与 git commit，并新增 `ISSUE_GUIDE.md` 指导 agent 复现、脱敏、分类和提交仓库 issue |

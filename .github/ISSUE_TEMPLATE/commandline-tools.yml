@@ -1,0 +1,74 @@
+name: HarmonyOS Command Line Tools setup
+description: Report Command Line Tools download, install, PATH, codelinter, or local archive bootstrap issues.
+title: "[cli-tools] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for HarmonyOS Command Line Tools setup and validation issues.
+
+        Do not paste private download URLs, tokens, local usernames, or private filesystem paths without redaction.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - bug
+        - feature
+        - docs
+        - question
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command or workflow
+      description: Paste the command shape, for example commandline_tools_manager.py doctor/install/bootstrap.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: structured-output
+    attributes:
+      label: Structured output
+      description: Paste redacted JSON output, especially decision, missingConfig, issues, recommendations, toolsRoot, archive, and codelinter fields.
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, shell, existing tools root, PATH change mode, and whether you provided a direct archive URL or only a Huawei download-center page.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include short sanitized error snippets when useful.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: redaction
+    attributes:
+      label: Redaction checklist
+      options:
+        - label: I removed private archive URLs, tokens, local usernames, and private paths.
+          required: true
+        - label: I kept reproducibility-critical command shapes and public version facts.
+          required: true

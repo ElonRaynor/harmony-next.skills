@@ -1,0 +1,71 @@
+name: Reference / API lookup
+description: Report missing, stale, incorrect, or poorly routed HarmonyOS reference/API documentation in the skill corpus.
+title: "[reference] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for local HarmonyOS reference corpus and API lookup issues.
+
+        Keep enough query and path detail for reproduction, but redact private project context.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - bug
+        - feature
+        - docs
+        - question
+    validations:
+      required: true
+
+  - type: textarea
+    id: query
+    attributes:
+      label: User query or API/topic
+      description: Paste the query, API symbol, guide title, or expected topic.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: local-path
+    attributes:
+      label: Local reference path
+      description: Paste the local reference path used, missing slug, bad anchor, or incorrect mapping.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: compat-output
+    attributes:
+      label: Compatibility check output
+      description: Paste reference_compat.py check output when relevant.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: redaction
+    attributes:
+      label: Redaction checklist
+      options:
+        - label: I removed private project names, local private paths, account IDs, emails, and internal URLs.
+          required: true

@@ -1,0 +1,83 @@
+name: DevEco Emulator / HVD automation
+description: Report HVD discovery, launch, image-root, license, HDC readiness, or emulator lifecycle issues.
+title: "[hvd] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for DevEco Emulator and HVD automation issues.
+
+        Redact local usernames, private paths, device labels, account IDs, internal URLs, and app-specific names before submitting.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - bug
+        - feature
+        - docs
+        - question
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command or workflow
+      description: Paste the command shape, for example hvd_manager.py doctor/list/launch-preflight/launch.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: structured-output
+    attributes:
+      label: Structured output
+      description: Paste redacted JSON, especially decision, missingConfig, recommendations, hvdRoot, emulator, imageRoot, imageSubPath, hdcWait, bootWait, stabilityWait, processExitCode, and logPath.
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: DevEco Studio path/version, Emulator -version, OS, shell, HVD type/API version, and whether the path is SDK root or emulator image root.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: hdc
+    attributes:
+      label: HDC readiness
+      description: Redacted hdc list targets -v output before and after launch, plus boot/stability status if available.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include short sanitized error snippets when useful.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: redaction
+    attributes:
+      label: Redaction checklist
+      options:
+        - label: I removed local usernames, private paths, account IDs, internal URLs, and private device labels.
+          required: true
+        - label: I did not attach full private logs unless redaction was verified.
+          required: true

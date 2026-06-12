@@ -1,0 +1,84 @@
+name: Device evidence bundle
+description: Report hdc evidence capture, bm/aa/hilog/layout/screenshot collection, target selection, or command ledger issues.
+title: "[device-evidence] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for `device_evidence_bundle.py`.
+
+        Do not attach raw screenshots, raw layout trees, full logs, private bundle IDs, app names, account IDs, tokens, emails, phone numbers, or internal URLs unless redaction is verified.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - bug
+        - feature
+        - docs
+        - question
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: Paste the device_evidence_bundle.py doctor/capture command shape with private paths and targets redacted.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: structured-output
+    attributes:
+      label: Structured output
+      description: Paste redacted JSON, especially decision, operation, missingConfig, recommendations, feedback, layoutSummary, artifacts, hdc, and connectedTargets.
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: command-ledger
+    attributes:
+      label: Command ledger
+      description: Paste only redacted command_ledger.json snippets, not full raw stdout/stderr.
+      render: json
+    validations:
+      required: false
+
+  - type: textarea
+    id: fallback
+    attributes:
+      label: Official CLI fallback
+      description: Note whether hdc list targets -v, bm dump, aa dump, bounded hilog, uitest dumpLayout, screenCap, and file recv were attempted.
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include short sanitized error snippets when useful.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: redaction
+    attributes:
+      label: Redaction checklist
+      options:
+        - label: I removed or replaced screenshots with private UI.
+          required: true
+        - label: I removed raw layout trees, full logs, and app-specific bundle/ability names.
+          required: true
+        - label: I removed local usernames, private paths, account IDs, tokens, emails, phone numbers, and internal URLs.
+          required: true

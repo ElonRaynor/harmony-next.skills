@@ -1,0 +1,72 @@
+name: Skill packaging / release
+description: Report skill zip packaging, BUILD_INFO, GitHub Actions, release asset, install, or versioning issues.
+title: "[release] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for packaging, release, GitHub Actions, and skill installation issues.
+
+        Redact tokens, private runner paths, and account-specific output.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - bug
+        - feature
+        - docs
+        - question
+    validations:
+      required: true
+
+  - type: textarea
+    id: release
+    attributes:
+      label: Release or run
+      description: Release tag, nightly run, GitHub Actions URL, asset name, or install source.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: build-info
+    attributes:
+      label: BUILD_INFO / package metadata
+      description: Paste redacted BUILD_INFO.json fields, asset name, expected version, actual version, or zip layout summary.
+      render: json
+    validations:
+      required: false
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command or workflow
+      description: Paste the packaging/install command or workflow step.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include short sanitized error snippets when useful.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: redaction
+    attributes:
+      label: Redaction checklist
+      options:
+        - label: I removed tokens, private runner paths, local usernames, and account-specific output.
+          required: true

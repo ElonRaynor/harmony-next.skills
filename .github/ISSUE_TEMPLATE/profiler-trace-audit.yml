@@ -1,0 +1,74 @@
+name: Profiler trace audit
+description: Report trace_streamer discovery, trace conversion, SQLite summary, threshold, or offline Profiler evidence issues.
+title: "[trace-audit] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for `profiler_trace_audit.py` and offline trace evidence audit issues.
+
+        Avoid attaching raw traces from private apps. Prefer redacted `summary.json`, schema/table metadata, and short sanitized error snippets.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - bug
+        - feature
+        - docs
+        - question
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: Paste the profiler_trace_audit.py doctor/audit command shape.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: structured-output
+    attributes:
+      label: Structured output
+      description: Paste redacted JSON, especially decision, missingConfig, traceStreamer, input, outputDir, summary, topCallstack, thresholdHits, frameSlice, and recommendations.
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: trace-metadata
+    attributes:
+      label: Trace metadata
+      description: Trace type, DevEco trace_streamer version, source_type, parse_tool/tool_version, trace_range, table availability, and whether SQLite was created.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include short sanitized stderr/stdout snippets when useful.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: redaction
+    attributes:
+      label: Redaction checklist
+      options:
+        - label: I did not attach private raw trace files unless sharing was explicitly approved.
+          required: true
+        - label: I removed private process names, app names, usernames, paths, internal URLs, and account identifiers.
+          required: true

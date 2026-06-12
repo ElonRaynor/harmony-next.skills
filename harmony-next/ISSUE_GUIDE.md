@@ -4,6 +4,20 @@ Use this guide when a HarmonyOS NEXT user reports a requirement, bug, missing ca
 
 Repository: `linhay/harmony-next.skills`
 
+## Scenario Forms
+
+Choose the issue form that matches the workflow under investigation:
+
+| Scenario | Form | Direct URL |
+| --- | --- | --- |
+| DevEco Emulator / HVD launch, image root, license, HDC readiness, lifecycle | `deveco-emulator-hvd.yml` | `https://github.com/linhay/harmony-next.skills/issues/new?template=deveco-emulator-hvd.yml` |
+| HarmonyOS Command Line Tools setup, archive install, PATH, `codelinter` | `commandline-tools.yml` | `https://github.com/linhay/harmony-next.skills/issues/new?template=commandline-tools.yml` |
+| HDC device evidence capture, `bm/aa/hilog`, layout, screenshot, command ledger | `device-evidence-bundle.yml` | `https://github.com/linhay/harmony-next.skills/issues/new?template=device-evidence-bundle.yml` |
+| Offline UI/UX audit, UxTestService, Python deps, rule result, false positive/negative | `offline-ux-audit.yml` | `https://github.com/linhay/harmony-next.skills/issues/new?template=offline-ux-audit.yml` |
+| Offline Profiler trace audit, `trace_streamer`, SQLite summary, long spans | `profiler-trace-audit.yml` | `https://github.com/linhay/harmony-next.skills/issues/new?template=profiler-trace-audit.yml` |
+| Reference/API lookup, missing/stale docs, bad slug/anchor/routing | `reference-api-feedback.yml` | `https://github.com/linhay/harmony-next.skills/issues/new?template=reference-api-feedback.yml` |
+| Skill packaging, release asset, `BUILD_INFO.json`, install/versioning | `skill-packaging-release.yml` | `https://github.com/linhay/harmony-next.skills/issues/new?template=skill-packaging-release.yml` |
+
 ## Workflow
 
 1. Clarify only the minimum missing detail needed to avoid filing a wrong issue.
@@ -13,6 +27,8 @@ Repository: `linhay/harmony-next.skills`
    - `python3 harmony-next/scripts/hvd_manager.py launch-preflight ... --json`
    - `python3 harmony-next/scripts/hvd_manager.py launch ... --json`
    - `python3 harmony-next/scripts/commandline_tools_manager.py doctor --tools-root <dir> --json`
+   - `python3 harmony-next/scripts/device_evidence_bundle.py doctor --deveco-app <DevEco-Studio.app> --json`
+   - `python3 harmony-next/scripts/ux_audit_pipeline.py doctor --deveco-app <DevEco-Studio.app> --python <python-with-ux-deps> --json`
    - `python3 harmony-next/scripts/reference_compat.py check`
    - `python3 -m unittest discover -s harmony-next/tests`
 3. Preserve structured fields in the issue instead of flattening them into prose:
@@ -32,21 +48,39 @@ Repository: `linhay/harmony-next.skills`
    - `stabilityWait`
    - `processExitCode`
    - `logPath`
+   - `feedback`
+   - `artifacts`
+   - `commandLedger`
+   - `layoutSummary`
+   - `uxService`
+   - `uxPython`
+   - `resultCounts`
+   - `uxSummary`
+   - `report`
+   - `traceStreamer`
+   - `input`
+   - `outputDir`
+   - `topCallstack`
+   - `thresholdHits`
+   - `frameSlice`
 4. Redact private data before filing:
    - Replace local usernames, absolute private repo paths, app names, bundle IDs, team IDs, account IDs, emails, phone numbers, internal hosts, and private URLs with stable placeholders.
    - Keep reproducibility-critical public facts such as DevEco Studio version, Emulator version, HVD type/API version, CLI command shape, error codes, and sanitized JSON field names.
    - Do not attach full private logs, screenshots with personal data, HAPs, app source, or raw UI dumps unless the user explicitly asked and redaction is verified.
-5. Classify the issue:
+5. Choose the scenario form from the table above. If a script output includes `feedback.issueTemplate`, prefer that form.
+6. Classify the issue:
    - `bug`: behavior is broken, unstable, misleading, or inconsistent with documented/script behavior.
    - `feature`: user needs a new capability, script command, fixture, or workflow.
    - `docs`: documentation, onboarding, examples, routing, or troubleshooting are unclear.
    - `question`: only if no concrete repository change is identifiable yet.
-6. Create the issue with `gh issue create --repo linhay/harmony-next.skills`.
-7. Report the issue URL back to the user with a short summary and local verification result.
+7. Create the issue with the matching direct URL, or use `gh issue create --repo linhay/harmony-next.skills --template <form>` when the local GitHub CLI supports the selected issue form.
+8. Report the issue URL back to the user with a short summary and local verification result.
 
-## Common Issue Templates
+## Scenario Template Fields
 
 ### DevEco Emulator / HVD
+
+Form: `deveco-emulator-hvd.yml`
 
 Include:
 
@@ -62,6 +96,8 @@ Include:
 
 ### Command Line Tools
 
+Form: `commandline-tools.yml`
+
 Include:
 
 - OS and shell.
@@ -70,7 +106,52 @@ Include:
 - `commandline_tools_manager.py doctor --tools-root <dir>` output.
 - Install/bootstrap command and structured blocked/error output.
 
+### Device Evidence Bundle
+
+Form: `device-evidence-bundle.yml`
+
+Include:
+
+- Command line used for `device_evidence_bundle.py`.
+- `doctor --json` output with private target labels redacted.
+- `capture` JSON output, especially `decision`, `missingConfig`, `recommendations`, `feedback`, `layoutSummary`, and `artifacts`.
+- `command_ledger.json` only after redacting private paths, bundle/app names, and stdout/stderr snippets.
+- Whether official CLI fallback was attempted: `hdc list targets -v`, `bm dump`, `aa dump`, bounded `hilog`, `uitest dumpLayout`, `screenCap`, and `file recv`.
+
+Do not attach raw screenshots, raw layout trees, full logs, or app-specific bundle/ability names unless the user explicitly approves and redaction is verified.
+
+### Offline UI/UX Audit
+
+Form: `offline-ux-audit.yml`
+
+Include:
+
+- Command line used for `ux_audit_pipeline.py`.
+- `doctor --json` output, including `uxService`, `uxPython`, `connectedTargets`, and `missingConfig`.
+- `summary.json`, `ux_summary.json`, and `report.md` after redacting private paths, bundle IDs, and screenshots/layout/log references.
+- `resultCounts`, rule codes, `test_state`, `ErrorCode`, `ErrorType`, and short sanitized error snippets.
+- Whether `capture-audit` or `audit --evidence-summary` was used.
+- If blocked, whether official CLI capture fallback was attempted and whether retrying `audit --layout ... --screenshot ... --bundle ...` changed the result.
+
+Do not attach UxTestService marked images, screenshots, raw `ux_result.json`, raw `layout.json`, or full `hilog` unless the user explicitly approves and redaction is verified.
+
+### Offline Profiler Trace Audit
+
+Form: `profiler-trace-audit.yml`
+
+Include:
+
+- Command line used for `profiler_trace_audit.py`.
+- `doctor --json` output, including `traceStreamer`, version, and supported abilities when available.
+- `audit` JSON output, especially `decision`, `missingConfig`, `recommendations`, `summary`, `topCallstack`, `thresholdHits`, and `frameSlice`.
+- Trace metadata such as file type, `source_type`, `parse_tool`, `tool_version`, `trace_range`, and whether SQLite was created.
+- Short sanitized stdout/stderr snippets if `trace_streamer` fails.
+
+Do not attach private raw trace files, private process names, app names, usernames, paths, internal URLs, or account identifiers unless sharing is explicitly approved and redaction is verified.
+
 ### Offline Reference / API Lookup
+
+Form: `reference-api-feedback.yml`
 
 Include:
 
@@ -80,6 +161,8 @@ Include:
 - `reference_compat.py check` output when relevant.
 
 ### Skill Packaging / Release
+
+Form: `skill-packaging-release.yml`
 
 Include:
 

@@ -1,0 +1,84 @@
+name: Offline UI/UX audit
+description: Report UxTestService pipeline, Python dependency, rule output, false positive, false negative, or marked-image issues.
+title: "[ux-audit] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for `ux_audit_pipeline.py` and DevEco `UxTestService` offline audit issues.
+
+        Do not attach marked images, screenshots, raw layout JSON, raw `ux_result.json`, or full logs unless the user approved sharing and redaction is verified.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - bug
+        - false positive
+        - false negative
+        - feature
+        - docs
+        - question
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: Paste the ux_audit_pipeline.py doctor/capture-audit/audit command shape with private paths and targets redacted.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: structured-output
+    attributes:
+      label: Structured output
+      description: Paste redacted JSON, especially decision, missingConfig, feedback, uxService, uxPython, resultCounts, uxSummary, report, bundleCandidates, and recommendations.
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: rule-results
+    attributes:
+      label: Rule results
+      description: Paste sanitized rule codes, test_state, ErrorCode, ErrorType, short message snippets, and whether capture-audit or audit --evidence-summary was used.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: fallback
+    attributes:
+      label: Official CLI fallback
+      description: If blocked, note whether manual hdc/uitest layout+screenshot capture was attempted and whether audit --layout ... --screenshot ... --bundle ... changed the result.
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include short sanitized error snippets when useful.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: redaction
+    attributes:
+      label: Redaction checklist
+      options:
+        - label: I removed marked images, screenshots, raw layout JSON, raw ux_result.json, and full logs.
+          required: true
+        - label: I removed private bundle IDs, app names, local usernames, private paths, account IDs, tokens, emails, phone numbers, and internal URLs.
+          required: true
