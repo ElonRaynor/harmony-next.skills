@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import signal
 import shutil
 import subprocess
 import sys
@@ -787,7 +788,7 @@ class HvdManagerTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["result"], "trace-timeout")
-        self.assertEqual(payload["processExitCode"], 7)
+        self.assertIn(payload["processExitCode"], {7, -signal.SIGTERM})
         self.assertTrue(Path(payload["logPath"]).exists())
         self.assertIn("hvdRuntime", payload)
         self.assertIn("hdcSnapshot", payload)

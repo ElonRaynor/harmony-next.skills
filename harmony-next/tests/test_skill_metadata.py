@@ -11,10 +11,7 @@ from pathlib import Path
 
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
-REPO_ROOT = SKILL_ROOT.parent
 SKILL_PATH = SKILL_ROOT / "SKILL.md"
-README_PATH = REPO_ROOT / "README.md"
-README_EN_PATH = REPO_ROOT / "README_en.md"
 EMULATOR_PLAYBOOK_PATH = SKILL_ROOT / "references" / "ideGuides" / "DevEco模拟器私有接口与AI自动化.md"
 EMPTY_ABILITY_TEMPLATE_ROOT = SKILL_ROOT / "references" / "templates" / "empty-ability-app"
 MINIMAL_SCAFFOLD_DOC_PATH = SKILL_ROOT / "references" / "quickStart" / "ets" / "minimal-project-scaffold.md"
@@ -25,13 +22,45 @@ import sync_release_version  # noqa: E402
 import package_skill  # noqa: E402
 
 
+def find_repo_root(skill_root: Path) -> Path | None:
+    for candidate in [skill_root.parent, *skill_root.parents]:
+        if (candidate / "README.md").is_file() and (candidate / "README_en.md").is_file():
+            return candidate
+    return None
+
+
+REPO_ROOT = find_repo_root(SKILL_ROOT)
+README_PATH = REPO_ROOT / "README.md" if REPO_ROOT else None
+README_EN_PATH = REPO_ROOT / "README_en.md" if REPO_ROOT else None
+
+
 class SkillMetadataTests(unittest.TestCase):
     def setUp(self) -> None:
         self.skill_text = SKILL_PATH.read_text(encoding="utf-8")
-        self.readme_text = README_PATH.read_text(encoding="utf-8")
-        self.readme_en_text = README_EN_PATH.read_text(encoding="utf-8")
+        self.readme_text = README_PATH.read_text(encoding="utf-8") if README_PATH else None
+        self.readme_en_text = README_EN_PATH.read_text(encoding="utf-8") if README_EN_PATH else None
         self.emulator_playbook_text = EMULATOR_PLAYBOOK_PATH.read_text(encoding="utf-8")
         self.minimal_scaffold_text = MINIMAL_SCAFFOLD_DOC_PATH.read_text(encoding="utf-8")
+
+    def require_repo_root(self) -> Path:
+        if REPO_ROOT is None:
+            self.skipTest("repository-level README files are not available in this skill installation")
+        return REPO_ROOT
+
+    def require_readmes(self) -> tuple[str, str]:
+        if self.readme_text is None or self.readme_en_text is None:
+            self.skipTest("repository-level README files are not available in this skill installation")
+        return self.readme_text, self.readme_en_text
+
+    def test_find_repo_root_supports_agents_skill_install_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            skill_root = repo_root / ".agents" / "skills" / "harmony-next"
+            skill_root.mkdir(parents=True)
+            (repo_root / "README.md").write_text("# zh\n", encoding="utf-8")
+            (repo_root / "README_en.md").write_text("# en\n", encoding="utf-8")
+
+            self.assertEqual(find_repo_root(skill_root), repo_root)
 
     def test_skill_exposes_current_version_for_agents(self) -> None:
         metadata_version = re.search(r"version:\s*\"(\d+\.\d+\.\d+)\"", self.skill_text)
@@ -45,20 +74,23 @@ class SkillMetadataTests(unittest.TestCase):
         self.assertIn(f"`v{metadata_version.group(1)}`", visible_version.group(0))
 
     def test_readme_release_badges_match_skill_version(self) -> None:
+        readme_text, readme_en_text = self.require_readmes()
         metadata_version = re.search(r"version:\s*\"(\d+\.\d+\.\d+)\"", self.skill_text)
         self.assertIsNotNone(metadata_version)
 
         tag_version = f"v{metadata_version.group(1)}"
-        for text in [self.readme_text, self.readme_en_text]:
+        for text in [readme_text, readme_en_text]:
             with self.subTest(readme=text[:20]):
                 self.assertIn(f"release-{tag_version}-1f6feb", text)
                 self.assertIn(f"releases/tag/{tag_version}", text)
 
     def test_readmes_have_language_switches(self) -> None:
-        self.assertIn("语言：中文 | [English](./README_en.md)", self.readme_text)
-        self.assertIn("Language: English | [中文](./README.md)", self.readme_en_text)
+        readme_text, readme_en_text = self.require_readmes()
+        self.assertIn("语言：中文 | [English](./README_en.md)", readme_text)
+        self.assertIn("Language: English | [中文](./README.md)", readme_en_text)
 
     def test_readmes_document_official_codex_skill_locations(self) -> None:
+        readme_text, readme_en_text = self.require_readmes()
         required_readme_fragments = [
             "官方 Codex Agent Skills 文档",
             "https://developers.openai.com/codex/skills",
@@ -82,10 +114,10 @@ class SkillMetadataTests(unittest.TestCase):
 
         for fragment in required_readme_fragments:
             with self.subTest(fragment=fragment):
-                self.assertIn(fragment, self.readme_text)
+                self.assertIn(fragment, readme_text)
         for fragment in required_readme_en_fragments:
             with self.subTest(fragment=fragment):
-                self.assertIn(fragment, self.readme_en_text)
+                self.assertIn(fragment, readme_en_text)
 
     def test_skill_documents_freshness_and_installation_paths(self) -> None:
         required_fragments = [
@@ -109,6 +141,7 @@ class SkillMetadataTests(unittest.TestCase):
                 self.assertIn(fragment, self.skill_text)
 
     def test_emulator_automation_policy_is_non_interactive(self) -> None:
+        readme_text, readme_en_text = self.require_readmes()
         required_skill_fragments = [
             "HARMONY_NEXT_AUTOMATION_POLICY",
             "readonly",
@@ -171,10 +204,10 @@ class SkillMetadataTests(unittest.TestCase):
                 self.assertIn(fragment, self.emulator_playbook_text)
         for fragment in required_readme_fragments:
             with self.subTest(fragment=fragment):
-                self.assertIn(fragment, self.readme_text)
+                self.assertIn(fragment, readme_text)
         for fragment in required_readme_en_fragments:
             with self.subTest(fragment=fragment):
-                self.assertIn(fragment, self.readme_en_text)
+                self.assertIn(fragment, readme_en_text)
         for fragment in forbidden_fragments:
             with self.subTest(fragment=fragment):
                 self.assertNotIn(fragment, self.skill_text)
@@ -214,16 +247,23 @@ class SkillMetadataTests(unittest.TestCase):
                 self.assertIn(fragment, self.emulator_playbook_text)
 
     def test_release_workflow_uses_skill_zip_asset(self) -> None:
-        workflow_text = (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+        repo_root = self.require_repo_root()
+        workflow_path = repo_root / ".github" / "workflows" / "release.yml"
+        if not workflow_path.is_file():
+            self.skipTest("release workflow is not available in this skill installation")
+        workflow_text = workflow_path.read_text(encoding="utf-8")
 
         self.assertIn("harmony-next.skill.zip", workflow_text)
         self.assertIn("package_skill.py", workflow_text)
         self.assertNotIn("harmony-next.skill\n", workflow_text)
 
     def test_package_skill_includes_build_info_and_issue_guide(self) -> None:
+        repo_root = self.require_repo_root()
+        if not (repo_root / ".git").exists():
+            self.skipTest("git metadata is not available in this skill installation")
         with tempfile.TemporaryDirectory() as temp_dir:
             output = Path(temp_dir) / "harmony-next.skill.zip"
-            payload = package_skill.package_skill(REPO_ROOT, SKILL_ROOT, output, release_tag="v9.9.9")
+            payload = package_skill.package_skill(repo_root, SKILL_ROOT, output, release_tag="v9.9.9")
 
             self.assertTrue(output.is_file())
             self.assertEqual(payload["buildInfo"]["name"], "harmony-next")
@@ -246,6 +286,7 @@ class SkillMetadataTests(unittest.TestCase):
             self.assertIn("hvd_manager.py doctor --json", issue_guide)
 
     def test_emulator_proxy_capture_guidance_is_external_user_facing(self) -> None:
+        readme_text, readme_en_text = self.require_readmes()
         required_skill_fragments = [
             "simulator traffic capture",
             "HTTP proxy tools",
@@ -295,12 +336,13 @@ class SkillMetadataTests(unittest.TestCase):
                 self.assertIn(fragment, self.emulator_playbook_text)
         for fragment in required_readme_fragments:
             with self.subTest(fragment=fragment):
-                self.assertIn(fragment, self.readme_text)
+                self.assertIn(fragment, readme_text)
         for fragment in required_readme_en_fragments:
             with self.subTest(fragment=fragment):
-                self.assertIn(fragment, self.readme_en_text)
+                self.assertIn(fragment, readme_en_text)
 
     def test_empty_ability_template_is_copyable_for_smoke_tests(self) -> None:
+        readme_text, readme_en_text = self.require_readmes()
         required_paths = [
             "README.md",
             "oh-package.json5",
@@ -394,20 +436,23 @@ class SkillMetadataTests(unittest.TestCase):
         for fragment in required_fragments:
             with self.subTest(fragment=fragment):
                 self.assertIn(fragment, self.minimal_scaffold_text)
-                self.assertIn(fragment, self.readme_text)
-                self.assertIn(fragment, self.readme_en_text)
+                self.assertIn(fragment, readme_text)
+                self.assertIn(fragment, readme_en_text)
                 self.assertIn(fragment, self.skill_text)
 
         self.assertIn("页面入口与 smoke 组件解耦", self.minimal_scaffold_text)
-        self.assertIn("页面入口与 smoke 组件解耦", self.readme_text)
-        self.assertIn("The route page and smoke component are decoupled", self.readme_en_text)
+        self.assertIn("页面入口与 smoke 组件解耦", readme_text)
+        self.assertIn("The route page and smoke component are decoupled", readme_en_text)
         self.assertIn("Route/component split", self.skill_text)
 
     def test_sync_release_version_updates_skill_and_readmes(self) -> None:
+        self.require_readmes()
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)
             (temp_root / "harmony-next").mkdir()
             shutil.copy2(SKILL_PATH, temp_root / "harmony-next" / "SKILL.md")
+            assert README_PATH is not None
+            assert README_EN_PATH is not None
             shutil.copy2(README_PATH, temp_root / "README.md")
             shutil.copy2(README_EN_PATH, temp_root / "README_en.md")
 
