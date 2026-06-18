@@ -5,6 +5,7 @@ An offline HarmonyOS NEXT reference skill for coding agents such as Gemini CLI, 
 Language: English | [中文](./README.md)
 
 [![release](https://img.shields.io/badge/release-v1.3.23-1f6feb?style=flat-square)](https://github.com/linhay/harmony-next.skills/releases/tag/v1.3.23)
+[![skills.sh](https://skills.sh/b/linhay/harmony-next.skills)](https://skills.sh/linhay/harmony-next.skills)
 [![readme](https://img.shields.io/badge/readme-%E4%B8%AD%E6%96%87-0f766e?style=flat-square)](./README.md)
 ![docs](https://img.shields.io/badge/docs-3,693%20markdown%20files-7c3aed?style=flat-square)
 ![js-ets](https://img.shields.io/badge/JsEtsAPIReference-3,666%20files-b45309?style=flat-square)
@@ -144,6 +145,32 @@ Usage rules:
 
 ## Quick Start
 
+### Vercel Labs skills CLI (recommended generic path)
+
+This repository can be discovered and installed directly by [`vercel-labs/skills`](https://github.com/vercel-labs/skills):
+
+```bash
+npx skills add linhay/harmony-next.skills --skill harmony-next
+```
+
+List available skills without installing:
+
+```bash
+npx skills add linhay/harmony-next.skills --list
+```
+
+Install globally for Codex non-interactively, copying files instead of symlinking:
+
+```bash
+npx skills add linhay/harmony-next.skills --skill harmony-next -a codex -g -y --copy
+```
+
+Related directories and official example repositories:
+
+- [`skills.sh`](https://skills.sh/): the public directory and security-assessment entry used by `vercel-labs/skills`; this repository's page is [`skills.sh/linhay/harmony-next.skills`](https://skills.sh/linhay/harmony-next.skills).
+- [`vercel-labs/agent-skills`](https://github.com/vercel-labs/agent-skills): Vercel's official Agent Skills collection.
+- [`anthropics/skills`](https://github.com/anthropics/skills): Anthropic's public Agent Skills repository, including Claude skill examples, the spec, and a template.
+
 ### Gemini CLI
 
 ```bash
@@ -152,10 +179,15 @@ gemini skills install https://github.com/linhay/harmony-next.skills --path harmo
 
 ### Claude Code
 
-1. Download the skill directory from this repository.
-2. Zip it if needed.
-3. Upload it in Claude.ai via `Settings > Capabilities > Skills`.
-4. Or place it in your Claude Code skills directory.
+Recommended Claude Code install via the `vercel-labs/skills` CLI:
+
+```bash
+npx skills add linhay/harmony-next.skills --skill harmony-next -a claude-code -g -y --copy
+```
+
+This installs the skill into Claude Code's global skills directory (current CLI behavior: `~/.claude/skills/harmony-next`).
+
+Claude.ai web can still use the release `harmony-next.skill.zip` upload flow via `Settings > Capabilities > Skills`.
 
 If you only want to attach it as project context:
 
@@ -166,11 +198,17 @@ claude --add-dir /path/to/harmony-next.skills/harmony-next
 
 ### Codex
 
+Recommended Codex install via the `vercel-labs/skills` CLI:
+
+```bash
+npx skills add linhay/harmony-next.skills --skill harmony-next -a codex -g -y --copy
+```
+
 The official Codex Agent Skills docs define skills as the authoring format for reusable workflows. Direct skill folders are for local authoring and discovery; plugins are the installable distribution unit.
 
 Official docs: <https://developers.openai.com/codex/skills>
 
-This repository is not currently packaged as a Codex plugin, so the official Codex setup path is to place it in an official skill scan location.
+This repository is not currently packaged as a Codex plugin. If you do not use `npx skills`, place it in an official skill scan location manually.
 
 Official scan locations:
 

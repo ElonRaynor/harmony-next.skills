@@ -5,6 +5,7 @@
 语言：中文 | [English](./README_en.md)
 
 [![release](https://img.shields.io/badge/release-v1.3.23-1f6feb?style=flat-square)](https://github.com/linhay/harmony-next.skills/releases/tag/v1.3.23)
+[![skills.sh](https://skills.sh/b/linhay/harmony-next.skills)](https://skills.sh/linhay/harmony-next.skills)
 [![readme](https://img.shields.io/badge/readme-English-0f766e?style=flat-square)](./README_en.md)
 ![docs](https://img.shields.io/badge/docs-3,693%20markdown%20files-7c3aed?style=flat-square)
 ![js-ets](https://img.shields.io/badge/JsEtsAPIReference-3,666%20files-b45309?style=flat-square)
@@ -144,6 +145,32 @@ SKILL.md
 
 ## 快速接入
 
+### Vercel Labs skills CLI（推荐通用方式）
+
+本仓库可被 [`vercel-labs/skills`](https://github.com/vercel-labs/skills) 直接发现并安装：
+
+```bash
+npx skills add linhay/harmony-next.skills --skill harmony-next
+```
+
+只查看可用技能：
+
+```bash
+npx skills add linhay/harmony-next.skills --list
+```
+
+安装到 Codex 的全局技能目录（非交互，复制文件而不是软链）：
+
+```bash
+npx skills add linhay/harmony-next.skills --skill harmony-next -a codex -g -y --copy
+```
+
+相关目录与官方示例仓库：
+
+- [`skills.sh`](https://skills.sh/)：`vercel-labs/skills` 使用的公开目录与安全评分入口；本仓库页面是 [`skills.sh/linhay/harmony-next.skills`](https://skills.sh/linhay/harmony-next.skills)。
+- [`vercel-labs/agent-skills`](https://github.com/vercel-labs/agent-skills)：Vercel 官方维护的 Agent Skills 集合。
+- [`anthropics/skills`](https://github.com/anthropics/skills)：Anthropic 的公开 Agent Skills 仓库，包含 Claude skills 示例、规范与模板。
+
 ### Gemini CLI
 
 ```bash
@@ -152,10 +179,15 @@ gemini skills install https://github.com/linhay/harmony-next.skills --path harmo
 
 ### Claude Code
 
-1. 下载本仓库中的技能目录。
-2. 按需压缩技能文件夹。
-3. 在 Claude.ai 的 `Settings > Capabilities > Skills` 中上传。
-4. 或直接放进你的 Claude Code 技能目录。
+推荐使用 `vercel-labs/skills` CLI 安装到 Claude Code：
+
+```bash
+npx skills add linhay/harmony-next.skills --skill harmony-next -a claude-code -g -y --copy
+```
+
+这会把技能安装到 Claude Code 的全局技能目录（当前 CLI 行为是 `~/.claude/skills/harmony-next`）。
+
+Claude.ai 网页端仍可使用 release 中的 `harmony-next.skill.zip`：在 `Settings > Capabilities > Skills` 中上传。
 
 如果你只是想把仓库作为项目上下文附加：
 
@@ -166,11 +198,17 @@ claude --add-dir /path/to/harmony-next.skills/harmony-next
 
 ### Codex
 
+推荐使用 `vercel-labs/skills` CLI 安装到 Codex：
+
+```bash
+npx skills add linhay/harmony-next.skills --skill harmony-next -a codex -g -y --copy
+```
+
 官方 Codex Agent Skills 文档说明：skill 是可复用工作流的创作格式；直接 skill 目录用于本地创作与发现；可安装分发单元是 Codex plugin。
 
 官方文档：<https://developers.openai.com/codex/skills>
 
-本仓库当前还没有打包成 Codex plugin，因此 Codex 的官方接入方式是放入官方 skill 扫描路径。
+本仓库当前还没有打包成 Codex plugin。如果不使用 `npx skills`，可手动放入官方 skill 扫描路径。
 
 可选官方路径：
 

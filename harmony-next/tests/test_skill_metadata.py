@@ -92,6 +92,15 @@ class SkillMetadataTests(unittest.TestCase):
     def test_readmes_document_official_codex_skill_locations(self) -> None:
         readme_text, readme_en_text = self.require_readmes()
         required_readme_fragments = [
+            "Vercel Labs skills CLI",
+            "npx skills add linhay/harmony-next.skills --skill harmony-next",
+            "npx skills add linhay/harmony-next.skills --list",
+            "npx skills add linhay/harmony-next.skills --skill harmony-next -a claude-code -g -y --copy",
+            "npx skills add linhay/harmony-next.skills --skill harmony-next -a codex -g -y --copy",
+            "https://skills.sh/b/linhay/harmony-next.skills",
+            "https://skills.sh/linhay/harmony-next.skills",
+            "https://github.com/vercel-labs/agent-skills",
+            "https://github.com/anthropics/skills",
             "官方 Codex Agent Skills 文档",
             "https://developers.openai.com/codex/skills",
             "$CWD/.agents/skills/harmony-next",
@@ -102,6 +111,15 @@ class SkillMetadataTests(unittest.TestCase):
             "可安装分发单元是 Codex plugin",
         ]
         required_readme_en_fragments = [
+            "Vercel Labs skills CLI",
+            "npx skills add linhay/harmony-next.skills --skill harmony-next",
+            "npx skills add linhay/harmony-next.skills --list",
+            "npx skills add linhay/harmony-next.skills --skill harmony-next -a claude-code -g -y --copy",
+            "npx skills add linhay/harmony-next.skills --skill harmony-next -a codex -g -y --copy",
+            "https://skills.sh/b/linhay/harmony-next.skills",
+            "https://skills.sh/linhay/harmony-next.skills",
+            "https://github.com/vercel-labs/agent-skills",
+            "https://github.com/anthropics/skills",
             "official Codex Agent Skills docs",
             "https://developers.openai.com/codex/skills",
             "$CWD/.agents/skills/harmony-next",
@@ -126,6 +144,10 @@ class SkillMetadataTests(unittest.TestCase):
             "GitHub Releases or nightly",
             "Huawei online docs",
             "Install/update entrypoints:",
+            "Vercel Labs skills CLI",
+            "npx skills add linhay/harmony-next.skills --skill harmony-next",
+            "npx skills add linhay/harmony-next.skills --skill harmony-next -a claude-code -g -y --copy",
+            "npx skills add linhay/harmony-next.skills --skill harmony-next -a codex -g -y --copy",
             "gemini skills install",
             "Claude.ai",
             "Claude Code",
