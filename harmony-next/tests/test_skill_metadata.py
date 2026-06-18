@@ -75,59 +75,42 @@ class SkillMetadataTests(unittest.TestCase):
 
     def test_readme_release_badges_match_skill_version(self) -> None:
         readme_text, readme_en_text = self.require_readmes()
-        metadata_version = re.search(r"version:\s*\"(\d+\.\d+\.\d+)\"", self.skill_text)
-        self.assertIsNotNone(metadata_version)
-
-        tag_version = f"v{metadata_version.group(1)}"
         for text in [readme_text, readme_en_text]:
             with self.subTest(readme=text[:20]):
-                self.assertIn(f"release-{tag_version}-1f6feb", text)
-                self.assertIn(f"releases/tag/{tag_version}", text)
+                self.assertIn(
+                    "https://img.shields.io/github/v/release/linhay/harmony-next.skills?style=flat-square",
+                    text,
+                )
+                self.assertIn("https://github.com/linhay/harmony-next.skills/releases/latest", text)
 
     def test_readmes_have_language_switches(self) -> None:
         readme_text, readme_en_text = self.require_readmes()
-        self.assertIn("语言：中文 | [English](./README_en.md)", readme_text)
-        self.assertIn("Language: English | [中文](./README.md)", readme_en_text)
+        self.assertIn("readme-English", readme_text)
+        self.assertIn("(./README_en.md)", readme_text)
+        self.assertIn("readme-中文", readme_en_text)
+        self.assertIn("(./README.md)", readme_en_text)
 
     def test_readmes_document_official_codex_skill_locations(self) -> None:
         readme_text, readme_en_text = self.require_readmes()
         required_readme_fragments = [
-            "Vercel Labs skills CLI",
-            "npx skills add linhay/harmony-next.skills --skill harmony-next",
+            "npx skills add linhay/harmony-next.skills",
             "npx skills add linhay/harmony-next.skills --list",
-            "npx skills add linhay/harmony-next.skills --skill harmony-next -a claude-code -g -y --copy",
-            "npx skills add linhay/harmony-next.skills --skill harmony-next -a codex -g -y --copy",
+            "npx skills add linhay/harmony-next.skills -a claude-code -g -y --copy",
+            "npx skills add linhay/harmony-next.skills -a codex -g -y --copy",
             "https://skills.sh/b/linhay/harmony-next.skills",
             "https://skills.sh/linhay/harmony-next.skills",
-            "https://github.com/vercel-labs/agent-skills",
-            "https://github.com/anthropics/skills",
-            "官方 Codex Agent Skills 文档",
-            "https://developers.openai.com/codex/skills",
-            "$CWD/.agents/skills/harmony-next",
-            "$CWD/../.agents/skills/harmony-next",
-            "$REPO_ROOT/.agents/skills/harmony-next",
             "$HOME/.agents/skills/harmony-next",
-            "/etc/codex/skills/harmony-next",
-            "可安装分发单元是 Codex plugin",
+            "本仓库当前还不是 Codex plugin",
         ]
         required_readme_en_fragments = [
-            "Vercel Labs skills CLI",
-            "npx skills add linhay/harmony-next.skills --skill harmony-next",
+            "npx skills add linhay/harmony-next.skills",
             "npx skills add linhay/harmony-next.skills --list",
-            "npx skills add linhay/harmony-next.skills --skill harmony-next -a claude-code -g -y --copy",
-            "npx skills add linhay/harmony-next.skills --skill harmony-next -a codex -g -y --copy",
+            "npx skills add linhay/harmony-next.skills -a claude-code -g -y --copy",
+            "npx skills add linhay/harmony-next.skills -a codex -g -y --copy",
             "https://skills.sh/b/linhay/harmony-next.skills",
             "https://skills.sh/linhay/harmony-next.skills",
-            "https://github.com/vercel-labs/agent-skills",
-            "https://github.com/anthropics/skills",
-            "official Codex Agent Skills docs",
-            "https://developers.openai.com/codex/skills",
-            "$CWD/.agents/skills/harmony-next",
-            "$CWD/../.agents/skills/harmony-next",
-            "$REPO_ROOT/.agents/skills/harmony-next",
             "$HOME/.agents/skills/harmony-next",
-            "/etc/codex/skills/harmony-next",
-            "plugins are the installable distribution unit",
+            "not currently packaged as a Codex plugin",
         ]
 
         for fragment in required_readme_fragments:
@@ -197,16 +180,16 @@ class SkillMetadataTests(unittest.TestCase):
             "不是权限不足",
         ]
         required_readme_fragments = [
-            "非交互自动化策略",
-            "HARMONY_NEXT_AUTOMATION_POLICY",
-            "machine-readable blocked",
-            "策略是执行模式，不是授权门槛",
+            "必须先阅读对应的私有接口文档",
+            "产物目录",
+            "脱敏边界",
+            "非交互模式",
         ]
         required_readme_en_fragments = [
-            "non-interactive automation policy",
-            "HARMONY_NEXT_AUTOMATION_POLICY",
-            "machine-readable blocked",
-            "policy is an execution mode, not an authorization gate",
+            "must read the corresponding private-interface documents first",
+            "artifact directories",
+            "redaction boundaries",
+            "non-interactive execution policy",
         ]
         forbidden_fragments = [
             "需要用户确认",
@@ -336,18 +319,12 @@ class SkillMetadataTests(unittest.TestCase):
             "调试目标应用",
         ]
         required_readme_fragments = [
-            "模拟器抓包与代理诊断",
-            "抓包工具",
-            "10.0.2.2:9090",
-            "应用级代理",
-            "透明抓包",
+            "抓包诊断",
+            "DevEco 模拟器自动化",
         ]
         required_readme_en_fragments = [
-            "emulator traffic capture and proxy diagnostics",
-            "HTTP proxy capture tools",
-            "10.0.2.2:9090",
-            "app-level proxy",
-            "transparent interception",
+            "proxy diagnostics",
+            "DevEco Emulator automation",
         ]
 
         for fragment in required_skill_fragments:
@@ -402,6 +379,18 @@ class SkillMetadataTests(unittest.TestCase):
             "Harmony Smoke Tapped",
             "smoke-increment",
             "SmokeCounter",
+        ]
+        required_readme_fragments = [
+            "references/templates/empty-ability-app",
+            "empty-ability-app",
+            "smoke fixture",
+            "Codex plugin",
+        ]
+        required_readme_en_fragments = [
+            "references/templates/empty-ability-app",
+            "empty-ability-app",
+            "smoke fixture",
+            "Codex plugin",
         ]
 
         for relative_path in required_paths:
@@ -458,13 +447,17 @@ class SkillMetadataTests(unittest.TestCase):
         for fragment in required_fragments:
             with self.subTest(fragment=fragment):
                 self.assertIn(fragment, self.minimal_scaffold_text)
-                self.assertIn(fragment, readme_text)
-                self.assertIn(fragment, readme_en_text)
                 self.assertIn(fragment, self.skill_text)
 
+        for fragment in required_readme_fragments:
+            with self.subTest(readme_fragment=fragment):
+                self.assertIn(fragment, readme_text)
+
+        for fragment in required_readme_en_fragments:
+            with self.subTest(readme_en_fragment=fragment):
+                self.assertIn(fragment, readme_en_text)
+
         self.assertIn("页面入口与 smoke 组件解耦", self.minimal_scaffold_text)
-        self.assertIn("页面入口与 smoke 组件解耦", readme_text)
-        self.assertIn("The route page and smoke component are decoupled", readme_en_text)
         self.assertIn("Route/component split", self.skill_text)
 
     def test_sync_release_version_updates_skill_and_readmes(self) -> None:
@@ -485,8 +478,14 @@ class SkillMetadataTests(unittest.TestCase):
             self.assertIn('version: "9.8.7"', (temp_root / "harmony-next" / "SKILL.md").read_text(encoding="utf-8"))
             self.assertIn("Current local skill version: `v9.8.7`.", (temp_root / "harmony-next" / "SKILL.md").read_text(encoding="utf-8"))
             self.assertIn("<!-- version: 9.8.7 -->", (temp_root / "harmony-next" / "SKILL.md").read_text(encoding="utf-8"))
-            self.assertIn("release-v9.8.7-1f6feb", (temp_root / "README.md").read_text(encoding="utf-8"))
-            self.assertIn("releases/tag/v9.8.7", (temp_root / "README_en.md").read_text(encoding="utf-8"))
+            self.assertIn(
+                "https://img.shields.io/github/v/release/linhay/harmony-next.skills?style=flat-square",
+                (temp_root / "README.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "https://github.com/linhay/harmony-next.skills/releases/latest",
+                (temp_root / "README_en.md").read_text(encoding="utf-8"),
+            )
 
 
 if __name__ == "__main__":

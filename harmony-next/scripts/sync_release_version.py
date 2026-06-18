@@ -28,6 +28,11 @@ def replace_once(text: str, pattern: str, replacement: str, label: str) -> str:
     return updated
 
 
+def replace_once_if_present(text: str, pattern: str, replacement: str) -> tuple[str, bool]:
+    updated, count = re.subn(pattern, replacement, text, count=1, flags=re.MULTILINE)
+    return updated, count == 1
+
+
 def sync_skill(skill_path: Path, bare_version: str, tag_version: str) -> None:
     text = skill_path.read_text(encoding="utf-8")
     text = replace_once(
@@ -53,18 +58,22 @@ def sync_skill(skill_path: Path, bare_version: str, tag_version: str) -> None:
 
 def sync_readme(readme_path: Path, tag_version: str) -> None:
     text = readme_path.read_text(encoding="utf-8")
-    text = replace_once(
+    text, badge_replaced = replace_once_if_present(
         text,
         r"(badge/release-)v\d+\.\d+\.\d+(-1f6feb)",
         rf"\g<1>{tag_version}\2",
-        f"{readme_path.name} release badge",
     )
-    text = replace_once(
+    if not badge_replaced and "https://img.shields.io/github/v/release/linhay/harmony-next.skills?style=flat-square" not in text:
+        raise ValueError(f"Could not update {readme_path.name} release badge")
+
+    text, link_replaced = replace_once_if_present(
         text,
         r"(releases/tag/)v\d+\.\d+\.\d+",
         rf"\g<1>{tag_version}",
-        f"{readme_path.name} release link",
     )
+    if not link_replaced and "https://github.com/linhay/harmony-next.skills/releases/latest" not in text:
+        raise ValueError(f"Could not update {readme_path.name} release link")
+
     readme_path.write_text(text, encoding="utf-8")
 
 
