@@ -10,6 +10,7 @@ import sys
 import tempfile
 import textwrap
 import unittest
+from unittest import mock
 from pathlib import Path
 
 
@@ -145,6 +146,16 @@ class HvdManagerTests(unittest.TestCase):
         self.assertEqual(payload["hvdCount"], 1)
         self.assertIn("HarmonyOS Emulator 9.9.9", payload["emulatorVersion"]["output"])
         self.assertNotIn("uuid", payload["hvds"][0])
+
+    def test_candidate_emulators_prefers_deveco_default_before_path(self) -> None:
+        env = {key: "" for key in MODULE.EMULATOR_ENV_KEYS}
+        with mock.patch.dict(os.environ, env), mock.patch.object(MODULE.platform, "system", return_value="Darwin"), mock.patch.object(
+            MODULE.shutil, "which", return_value="/Users/test/Library/Android/sdk/emulator/Emulator"
+        ):
+            candidates = MODULE.candidate_emulators()
+
+        self.assertEqual(candidates[0][1], "macos:default-app")
+        self.assertIn((Path("/Users/test/Library/Android/sdk/emulator/Emulator"), "path:Emulator"), candidates)
 
     def test_create_hvd_clones_source_and_refreshes_identity(self) -> None:
         created = MODULE.create_hvd(

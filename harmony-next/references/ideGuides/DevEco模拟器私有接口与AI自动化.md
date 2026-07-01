@@ -32,6 +32,13 @@ IMAGE_ROOT="$HOME/Library/Huawei/Sdk"
 
 已知验证过的环境线索：DevEco Studio 6.0.2，HarmonyOS Emulator 6.0.2.200。其他版本必须重新探测。
 
+## 模拟器本机目录与应用沙箱速查
+
+- HVD 本机实例目录默认是 `$HOME/.Huawei/Emulator/deployed`；这是虚拟设备配置和镜像实例目录，不等于应用沙箱。
+- 应用沙箱在模拟器系统内。应用视角常见路径：`/data/storage/el2/base/haps/entry/files`、`/data/storage/el2/base/haps/entry/cache`、`/data/storage/el2/database`。
+- HDC/调试进程视角常见物理映射：`/data/storage/el2/base` -> `/data/app/el2/<USERID>/base/<bundleName>`，`/data/storage/el2/database` -> `/data/app/el2/<USERID>/database/<bundleName>`；普通调试用户常见 `<USERID>` 为 `100`。
+- 定位应用沙箱优先用只读命令：`hdc -t <target> shell aa dump -l` 找前台 bundle，再查 `/data/app/el2/<USERID>/base/<bundleName>` 和 `/data/app/el2/<USERID>/database/<bundleName>`；应用内路径以 `Context.filesDir` / `cacheDir` / `databaseDir` 为准。`shell -b <bundleName> pwd` 可能只返回 `/mnt/debug/.../debug_hap/<bundleName>`，不能当数据沙箱路径。需要取回文件时，用 `hdc -t <target> file recv <remote> <local>`，并按 `evidence` 模式记录 artifact 目录和脱敏策略。
+
 ## 自动化策略模型
 
 本 playbook 把风险分级和执行模式拆开：

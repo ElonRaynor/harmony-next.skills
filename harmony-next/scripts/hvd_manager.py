@@ -97,11 +97,6 @@ def candidate_emulators() -> list[tuple[Path, str]]:
     if env_path and env_key:
         candidates.append((env_path, f"env:{env_key}"))
 
-    for name in ["Emulator", "emulator", "Emulator.exe", "emulator.exe"]:
-        resolved = shutil.which(name)
-        if resolved:
-            candidates.append((Path(resolved), f"path:{name}"))
-
     system = platform.system()
     if system == "Darwin":
         candidates.extend(
@@ -127,6 +122,11 @@ def candidate_emulators() -> list[tuple[Path, str]]:
                 (Path("/opt/deveco-studio/tools/emulator/Emulator"), "linux:/opt"),
             ]
         )
+
+    for name in ["Emulator", "emulator", "Emulator.exe", "emulator.exe"]:
+        resolved = shutil.which(name)
+        if resolved:
+            candidates.append((Path(resolved), f"path:{name}"))
     return dedupe_candidates(candidates)
 
 

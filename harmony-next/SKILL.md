@@ -119,6 +119,7 @@ Default boundary:
 
 - 优先使用只读探测：`Emulator -version`、`Emulator -list -details`、`hdc list targets -v`、`uitest dumpLayout -p /dev/null -a`。
 - UI 操作优先走 `hdc -t <target> shell uitest uiInput`；do not use blind desktop-coordinate clicks.
+- 用户问“模拟器本机沙盒/应用沙盒在哪里”时，先区分 HVD 本机目录与应用沙箱：HVD 默认在 `~/.Huawei/Emulator/deployed`；应用沙箱在模拟器系统内，优先用 `aa dump -l` 找前台 bundle，再用 `Context.filesDir/cacheDir/databaseDir` 或 `/data/app/el2/<USERID>/base/<bundleName>` 这类物理映射定位。`shell -b <bundleName> pwd` 可能只返回 debug_hap 工作目录，不能当数据沙箱路径。
 - 直接 CLI 启动 Emulator 不能把 `Emulator -hvd ... -path ... -imageRoot ...` 当成完整命令；必须先通过已验证 helper 准备并持有 `-t <trace-name>` 对应的 trace pipe。缺少该前置条件时可能弹出“模拟器启动失败 / 请在DevEco Studio中登录华为账号，并从设备管理中启动模拟器”，应归类为不完整 CLI 启动路径，而不是先要求用户登录。
 - 区分 `riskLevel` 与执行模式：用户默认拥有完整执行权限；skill 不做授权或确认拦截。`HARMONY_NEXT_AUTOMATION_POLICY`、`--policy` 和 `.harmony-next-policy.json` 只描述本次 run 的自动化模式、产物目录与脱敏契约。
 - 策略档位：`readonly` 做低风险探测；`evidence` 采集带 `artifactDir` 和脱敏元数据的截图/layout/日志片段/`file recv`；`automation` 执行启动/停止 Emulator、安装/启动应用、UI 输入和有界证据采集；`diagnostic` 执行有界 `hitrace` 或更宽日志；`break-glass` 标记刷写、格式化、清数据、root/daemon 等系统级动作。
