@@ -791,12 +791,16 @@ def build_trace_timeout_diagnostics(
     }
 
 
-def parse_connected_target(output: str, target_hint: str | None = None) -> str | None:
+def parse_connected_target(output: str, target_hint: str | None = None, tcp_only: bool = False) -> str | None:
     for line in output.splitlines():
-        if "Connected" not in line:
+        parts = line.split()
+        if len(parts) < 3 or parts[2] != "Connected":
             continue
-        target = line.split()[0] if line.split() else ""
+        target = parts[0] if parts else ""
+        transport = parts[1].upper() if len(parts) > 1 else ""
         if target_hint and target_hint not in target:
+            continue
+        if tcp_only and transport != "TCP":
             continue
         return target
     return None
@@ -965,7 +969,7 @@ def wait_for_hdc_target(timeout: float, hdc: Path | str = "hdc", target_hint: st
         except (OSError, subprocess.TimeoutExpired) as error:
             return {"connected": False, "error": str(error), "lastOutput": last_output[:2000]}
         last_output = (result.stdout or result.stderr).strip()
-        target = parse_connected_target(last_output, target_hint)
+        target = parse_connected_target(last_output, target_hint, tcp_only=target_hint is None)
         if target:
             return {"connected": True, "target": target, "lastOutput": last_output[:2000]}
         time.sleep(1)
