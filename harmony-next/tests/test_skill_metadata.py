@@ -95,8 +95,8 @@ class SkillMetadataTests(unittest.TestCase):
         required_readme_fragments = [
             "npx skills add linhay/harmony-next.skills",
             "npx skills add linhay/harmony-next.skills --list",
-            "npx skills add linhay/harmony-next.skills -a claude-code -g -y --copy",
-            "npx skills add linhay/harmony-next.skills -a codex -g -y --copy",
+            "npx skills add linhay/harmony-next.skills --skill harmony-next -a claude-code -g -y --copy",
+            "npx skills add linhay/harmony-next.skills --skill harmony-next -a codex -g -y --copy",
             "https://skills.sh/b/linhay/harmony-next.skills",
             "https://skills.sh/linhay/harmony-next.skills",
             "$HOME/.agents/skills/harmony-next",
@@ -105,8 +105,8 @@ class SkillMetadataTests(unittest.TestCase):
         required_readme_en_fragments = [
             "npx skills add linhay/harmony-next.skills",
             "npx skills add linhay/harmony-next.skills --list",
-            "npx skills add linhay/harmony-next.skills -a claude-code -g -y --copy",
-            "npx skills add linhay/harmony-next.skills -a codex -g -y --copy",
+            "npx skills add linhay/harmony-next.skills --skill harmony-next -a claude-code -g -y --copy",
+            "npx skills add linhay/harmony-next.skills --skill harmony-next -a codex -g -y --copy",
             "https://skills.sh/b/linhay/harmony-next.skills",
             "https://skills.sh/linhay/harmony-next.skills",
             "$HOME/.agents/skills/harmony-next",

@@ -25,6 +25,12 @@ AI coding assistants commonly hit these issues during HarmonyOS development:
 
 This repository turns those uncertainties into **local file lookups that are locatable, linkable, and verifiable**.
 
+## Before / After
+
+**Without the skill**: the model guesses `@ohos.*` modules, ArkUI component names, or DevEco commands from memory, often without a verifiable source.
+
+**With this skill**: the agent follows `SKILL.md → KITS.md / TASK_MAP.md → INDEX.md`, opens the target Markdown files, then returns code plus `hdc` / `uitest` / wrapper-script validation commands.
+
 ## ✨ Core Features
 
 - **Fully offline lookup**: avoid guessing from model memory; resolve documentation paths before reading content
@@ -38,12 +44,13 @@ This repository turns those uncertainties into **local file lookups that are loc
 
 | Entry / Module | Purpose |
 | --- | --- |
-| [`SKILL.md`](./harmony-next/SKILL.md) | Skill rules: how agents should search and which sources to trust first |
+| [`SKILL.md`](./harmony-next/SKILL.md) | Single source of truth for skill rules: how agents should search and which sources to trust first |
 | [`references/KITS.md`](./harmony-next/references/KITS.md) | Navigate by Kit, such as AbilityKit, ArkUI, and ArkData |
 | [`references/TASK_MAP.md`](./harmony-next/references/TASK_MAP.md) | Navigate by task, such as UI, networking, media, and NDK |
 | [`references/INDEX.md`](./harmony-next/references/INDEX.md) | Full repository index with 3,693 Markdown paths |
 | [`JsEtsAPIReference/INDEX.md`](./harmony-next/references/JsEtsAPIReference/INDEX.md) | API bucket index for modules, topics, errors, and more |
 | [`references/templates/empty-ability-app`](./harmony-next/references/templates/empty-ability-app/) | Copyable HarmonyOS NEXT smoke fixture |
+| [`docs/agent-portability.md`](./docs/agent-portability.md) | Agent install and adapter path notes |
 | `harmony-next/references/` | All Markdown source documents, including 3,666 API documents |
 
 **Automation and diagnostic scripts**:
@@ -85,7 +92,7 @@ gemini skills install https://github.com/linhay/harmony-next.skills --path harmo
 ### Claude Code
 
 ```bash
-npx skills add linhay/harmony-next.skills -a claude-code -g -y --copy
+npx skills add linhay/harmony-next.skills --skill harmony-next -a claude-code -g -y --copy
 ```
 
 Or add the repository directory manually:
@@ -98,12 +105,14 @@ claude --add-dir /path/to/harmony-next.skills/harmony-next
 ### Codex
 
 ```bash
-npx skills add linhay/harmony-next.skills -a codex -g -y --copy
+npx skills add linhay/harmony-next.skills --skill harmony-next -a codex -g -y --copy
 ```
 
-> This repository is not currently packaged as a Codex plugin; `npx skills` installs the skill into a directory that Codex can scan.
+> This repository is not currently packaged as a Codex plugin; `npx skills` only installs the skill into a directory that Codex can scan. It does not install MCP/tools/apps.
 
-You can also place it manually in an official path such as `$HOME/.agents/skills/harmony-next`.
+You can also place it manually in an official path such as `$HOME/.agents/skills/harmony-next`; see [`docs/agent-portability.md`](./docs/agent-portability.md) for the full path list.
+
+Each host only loads the skill. HarmonyOS lookup behavior is governed by `harmony-next/SKILL.md`.
 
 ## 🧭 Recommended Lookup Path
 
@@ -167,6 +176,7 @@ Read the two documents above for full details.
 After syncing, migrating, or rewriting the reference library, run:
 
 ```bash
+python3 harmony-next/scripts/check_packaging_docs.py
 python3 harmony-next/scripts/reference_compat.py generate
 python3 harmony-next/scripts/reference_compat.py check
 python3 harmony-next/scripts/reference_compat.py audit

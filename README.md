@@ -25,6 +25,12 @@ AI 编程助手在 HarmonyOS 开发中经常碰到的几类问题：
 
 本仓库把这些不确定性变成**可定位、可跳转、可验证的本地文件查询**。
 
+## Before / After
+
+**没有 skill**：模型凭记忆猜 `@ohos.*` 模块、ArkUI 组件名或 DevEco 命令，答案看起来合理但缺少来源。
+
+**使用本 skill**：先按 `SKILL.md → KITS.md / TASK_MAP.md → INDEX.md` 命中文档路径，再打开目标 Markdown，最后给出代码片段和 `hdc` / `uitest` / wrapper 脚本验证命令。
+
 ## ✨ 核心特性
 
 - **完全离线检索**：不依赖模型记忆，先命中文档路径再读取正文
@@ -38,12 +44,13 @@ AI 编程助手在 HarmonyOS 开发中经常碰到的几类问题：
 
 | 入口 / 模块 | 用途 |
 | --- | --- |
-| [`SKILL.md`](./harmony-next/SKILL.md) | 技能规则：告诉 Agent 如何检索、哪些内容优先信文档 |
+| [`SKILL.md`](./harmony-next/SKILL.md) | 技能规则唯一来源：告诉 Agent 如何检索、哪些内容优先信文档 |
 | [`references/KITS.md`](./harmony-next/references/KITS.md) | 按 Kit 导航（AbilityKit、ArkUI、ArkData…） |
 | [`references/TASK_MAP.md`](./harmony-next/references/TASK_MAP.md) | 按任务反查（UI、网络、媒体、NDK…） |
 | [`references/INDEX.md`](./harmony-next/references/INDEX.md) | 全库文件索引（3,693 个 Markdown 路径） |
 | [`JsEtsAPIReference/INDEX.md`](./harmony-next/references/JsEtsAPIReference/INDEX.md) | API 分桶索引（modules、topics、errors…） |
 | [`references/templates/empty-ability-app`](./harmony-next/references/templates/empty-ability-app/) | 可复制的 HarmonyOS NEXT smoke fixture（最小工程） |
+| [`docs/agent-portability.md`](./docs/agent-portability.md) | Agent 安装与适配路径说明 |
 | `harmony-next/references/` | 所有 Markdown 正文（含 3,666 个 API 文档） |
 
 **自动化与诊断脚本**（按需使用）：
@@ -85,7 +92,7 @@ gemini skills install https://github.com/linhay/harmony-next.skills --path harmo
 ### Claude Code
 
 ```bash
-npx skills add linhay/harmony-next.skills -a claude-code -g -y --copy
+npx skills add linhay/harmony-next.skills --skill harmony-next -a claude-code -g -y --copy
 ```
 
 或手动添加仓库目录：
@@ -98,12 +105,14 @@ claude --add-dir /path/to/harmony-next.skills/harmony-next
 ### Codex
 
 ```bash
-npx skills add linhay/harmony-next.skills -a codex -g -y --copy
+npx skills add linhay/harmony-next.skills --skill harmony-next -a codex -g -y --copy
 ```
 
-> 本仓库当前还不是 Codex plugin；`npx skills` 会把 skill 安装到 Codex 可扫描的 skill 目录。
+> 本仓库当前还不是 Codex plugin；`npx skills` 只会把 skill 安装到 Codex 可扫描的 skill 目录，不会安装 MCP/tools/apps。
 
-也可手动放入官方路径（如 `$HOME/.agents/skills/harmony-next`）。
+也可手动放入官方路径（常用如 `$HOME/.agents/skills/harmony-next`；完整路径见 [`docs/agent-portability.md`](./docs/agent-portability.md)）。
+
+各 Host 只负责加载 skill；HarmonyOS 检索规则以 `harmony-next/SKILL.md` 为准。
 
 ## 🧭 推荐检索路径
 
@@ -167,6 +176,7 @@ SKILL.md → KITS.md / TASK_MAP.md → INDEX.md → 目标 Markdown
 参考库更新后运行校验：
 
 ```bash
+python3 harmony-next/scripts/check_packaging_docs.py
 python3 harmony-next/scripts/reference_compat.py generate
 python3 harmony-next/scripts/reference_compat.py check
 python3 harmony-next/scripts/reference_compat.py audit
