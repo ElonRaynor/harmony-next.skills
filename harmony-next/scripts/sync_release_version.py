@@ -58,6 +58,12 @@ def sync_skill(skill_path: Path, bare_version: str, tag_version: str) -> None:
 
 def sync_readme(readme_path: Path, tag_version: str) -> None:
     text = readme_path.read_text(encoding="utf-8")
+    text = replace_once(
+        text,
+        r"^(\|\s*`)v\d+\.\d+\.\d+(`\s*\|)",
+        rf"\g<1>{tag_version}\2",
+        f"{readme_path.name} current version highlight",
+    )
     text, badge_replaced = replace_once_if_present(
         text,
         r"(badge/release-)v\d+\.\d+\.\d+(-1f6feb)",

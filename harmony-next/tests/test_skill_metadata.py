@@ -521,6 +521,8 @@ class SkillMetadataTests(unittest.TestCase):
                 "https://github.com/linhay/harmony-next.skills/releases/latest",
                 (temp_root / "README_en.md").read_text(encoding="utf-8"),
             )
+            self.assertIn("| `v9.8.7` |", (temp_root / "README.md").read_text(encoding="utf-8"))
+            self.assertIn("| `v9.8.7` |", (temp_root / "README_en.md").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
