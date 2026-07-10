@@ -1,5 +1,5 @@
 name: Device evidence bundle
-description: Report hdc evidence capture, bm/aa/hilog/layout/screenshot collection, target selection, or command ledger issues.
+description: Report HDC evidence, bounded UI actions, WebView DevTools fport diagnostics, target selection, or command ledger issues.
 title: "[device-evidence] "
 body:
   - type: markdown
@@ -25,7 +25,7 @@ body:
     id: command
     attributes:
       label: Command
-      description: Paste the device_evidence_bundle.py doctor/capture command shape with private paths and targets redacted.
+      description: Paste the device_evidence_bundle.py doctor/capture/webview-devtools or device_ui_action.py command shape with private paths and targets redacted.
       render: shell
     validations:
       required: true
@@ -34,7 +34,7 @@ body:
     id: structured-output
     attributes:
       label: Structured output
-      description: Paste redacted JSON, especially decision, operation, missingConfig, recommendations, feedback, layoutSummary, artifacts, hdc, and connectedTargets.
+      description: Paste redacted JSON, especially decision, operation, failureCode, missingConfig, layoutSummary, coordinateSpace, sockets, staleForwards, fportStatus, httpProbe, artifacts, hdc, and connectedTargets.
       render: json
     validations:
       required: true

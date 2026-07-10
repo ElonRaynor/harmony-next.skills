@@ -27,6 +27,14 @@ NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}$")
 TRACE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 LOGIN_GATED_MODAL_SYMPTOM = "模拟器启动失败 / 请在DevEco Studio中登录华为账号，并从设备管理中启动模拟器"
 LICENSE_AGREEMENT_RESULT = "license-agreement-required"
+KERNEL_PANIC_PATTERNS = [
+    re.compile(r"Kernel panic - not syncing:[^\r\n]*", re.IGNORECASE),
+    re.compile(r"sysrq triggered crash", re.IGNORECASE),
+]
+EMULATOR_CRASH_PATTERNS = [
+    re.compile(r"\b(?:fatal signal|segmentation fault|abort trap|uncaught exception)\b[^\r\n]*", re.IGNORECASE),
+    re.compile(r"\b(?:emulator|qemu)[^\r\n]*(?:crash|crashed|terminated unexpectedly)\b[^\r\n]*", re.IGNORECASE),
+]
 
 
 class HvdManagerError(RuntimeError):
@@ -660,6 +668,8 @@ def log_indicates_license_agreement_required(text: str) -> bool:
 def apply_license_agreement_result(payload: dict[str, object]) -> None:
     payload["decision"] = "blocked"
     payload["result"] = LICENSE_AGREEMENT_RESULT
+    payload["failureCode"] = "license_agreement_required"
+    payload["failureCategory"] = "configuration"
     payload["missingConfig"] = ["emulatorLicenseAgreement"]
     payload["issues"] = ["Emulator requires first-run Huawei license/agreement confirmation before CLI launch can continue."]
     payload["recommendations"] = [
@@ -708,6 +718,104 @@ def snapshot_hdc(hdc: Path | None) -> dict[str, object]:
 
 def has_offline_hdc_target(output: str) -> bool:
     return any("Offline" in line for line in output.splitlines())
+
+
+def first_matching_signal(text: str, patterns: list[re.Pattern[str]]) -> str | None:
+    for pattern in patterns:
+        match = pattern.search(text)
+        if match:
+            return match.group(0).strip()[:500]
+    return None
+
+
+def summarize_hdc_snapshot(snapshot: dict[str, object]) -> dict[str, object]:
+    output = f"{snapshot.get('stdout', '')}\n{snapshot.get('stderr', '')}".strip()
+    connected: list[str] = []
+    offline: list[str] = []
+    for line in output.splitlines():
+        parts = line.split()
+        if len(parts) < 3:
+            continue
+        target = parts[0]
+        status = parts[2]
+        if status == "Connected":
+            connected.append(target)
+        elif status == "Offline":
+            offline.append(target)
+    return {
+        "ok": snapshot.get("ok", False),
+        "exitCode": snapshot.get("exitCode"),
+        "connectedTargets": connected[:20],
+        "offlineTargets": offline[:20],
+        "outputSnippet": output[:2000],
+    }
+
+
+def classify_launch_failure(
+    log_text: str,
+    process_exit_code: int | None,
+    hdc_wait: dict[str, object] | None,
+    hdc_before: dict[str, object] | None,
+    hdc_after: dict[str, object] | None,
+) -> dict[str, object]:
+    kernel_signal = first_matching_signal(log_text, KERNEL_PANIC_PATTERNS)
+    if kernel_signal:
+        return {
+            "failureCode": "emulator_kernel_panic",
+            "failureCategory": "emulator_crash",
+            "failureSignal": kernel_signal,
+            "recommendations": [
+                "Try another HVD image or device profile before retrying the same image.",
+                "Clear only stale HDC target state, then retry with an explicit HDC port.",
+                "Preserve the sanitized Emulator launch log for an upstream DevEco report.",
+            ],
+        }
+
+    crash_signal = first_matching_signal(log_text, EMULATOR_CRASH_PATTERNS)
+    if crash_signal or process_exit_code is not None:
+        return {
+            "failureCode": "emulator_crashed",
+            "failureCategory": "emulator_crash",
+            "failureSignal": crash_signal or f"Emulator process exited with code {process_exit_code}",
+            "recommendations": [
+                "Inspect the bounded Emulator launch log and HVD runtime state.",
+                "Retry with another HVD profile or repair the selected emulator image.",
+            ],
+        }
+
+    before_output = ""
+    after_output = ""
+    if hdc_before:
+        before_output = f"{hdc_before.get('stdout', '')}\n{hdc_before.get('stderr', '')}"
+    if hdc_after:
+        after_output = f"{hdc_after.get('stdout', '')}\n{hdc_after.get('stderr', '')}"
+    if has_offline_hdc_target(before_output) or has_offline_hdc_target(after_output):
+        return {
+            "failureCode": "stale_hdc_target",
+            "failureCategory": "hdc_state",
+            "failureSignal": "HDC reported Offline target state before or after launch.",
+            "recommendations": [
+                "Remove only the stale target with hdc tconn <target> -remove, then restart the same HDC server.",
+                "Retry with an explicit --hdc-port and confirm the selected port is not reused by another HVD.",
+            ],
+        }
+
+    wait_error = str((hdc_wait or {}).get("error") or "timed out waiting for hdc target")
+    return {
+        "failureCode": "hdc_wait_timeout",
+        "failureCategory": "hdc_readiness",
+        "failureSignal": wait_error[:500],
+        "recommendations": [
+            "Inspect hdc list targets -v from the same SDK toolchain and retry with an explicit --hdc-port.",
+            "Increase --timeout only after confirming the Emulator process remains alive and no crash signal is present.",
+        ],
+    }
+
+
+def apply_launch_failure(payload: dict[str, object], classification: dict[str, object]) -> None:
+    payload["decision"] = "blocked"
+    payload["result"] = "launch-failed"
+    payload.update(classification)
 
 
 def build_trace_timeout_diagnostics(
@@ -944,6 +1052,12 @@ def run_launch_preflight(args: argparse.Namespace, root: Path, emulator: Path | 
     }
 
     if missing_config:
+        if "imageRoot" in missing_config or "imageRootSystemImage" in missing_config:
+            payload["failureCode"] = "image_root_missing"
+            payload["failureCategory"] = "configuration"
+        elif "traceName" in missing_config or "tracePipeHelper" in missing_config:
+            payload["failureCode"] = "trace_helper_unavailable"
+            payload["failureCategory"] = "trace_startup"
         print_json(payload)
         return 2
 
@@ -1053,6 +1167,12 @@ def run_launch(args: argparse.Namespace, root: Path, emulator: Path | None, sdk_
     }
 
     if missing_config:
+        if "imageRoot" in missing_config or "imageRootSystemImage" in missing_config:
+            payload["failureCode"] = "image_root_missing"
+            payload["failureCategory"] = "configuration"
+        elif "traceName" in missing_config:
+            payload["failureCode"] = "trace_helper_unavailable"
+            payload["failureCategory"] = "trace_startup"
         print_json(payload)
         return 2
 
@@ -1065,6 +1185,7 @@ def run_launch(args: argparse.Namespace, root: Path, emulator: Path | None, sdk_
     log_path = artifact_dir / "emulator-launch.log"
     payload["artifactDir"] = str(artifact_dir)
     payload["logPath"] = str(log_path)
+    payload["hdcSnapshotBefore"] = snapshot_hdc(hdc_probe.path if hdc_probe.exists else None)
 
     socket_path = Path("/tmp") / args.trace_name
     if socket_path.exists():
@@ -1153,6 +1274,19 @@ def run_launch(args: argparse.Namespace, root: Path, emulator: Path | None, sdk_
             hdc_snapshot = snapshot_hdc(hdc_probe.path if hdc_probe.exists else None)
             payload["hvdRuntime"] = hvd_runtime
             payload["hdcSnapshot"] = hdc_snapshot
+            payload.update(
+                classify_launch_failure(
+                    str(payload["logTail"]),
+                    process_exit_code,
+                    None,
+                    payload.get("hdcSnapshotBefore") if isinstance(payload.get("hdcSnapshotBefore"), dict) else None,
+                    hdc_snapshot,
+                )
+            )
+            if payload.get("failureCode") not in {"emulator_kernel_panic", "emulator_crashed"}:
+                payload["failureCode"] = "trace_helper_unavailable"
+                payload["failureCategory"] = "trace_startup"
+                payload["failureSignal"] = "Trace socket connection was not established before timeout."
             payload["traceTimeoutDiagnostics"] = build_trace_timeout_diagnostics(
                 emulator_probe.path,
                 root,
@@ -1197,8 +1331,25 @@ def run_launch(args: argparse.Namespace, root: Path, emulator: Path | None, sdk_
     payload["logTail"] = read_text_snippet(log_path)
     payload["hvdRuntime"] = probe_emulator_runtime(emulator_probe.path, hvd.name)
     payload["hdcSnapshot"] = snapshot_hdc(hdc_probe.path if hdc_probe.exists else None)
+    if not args.no_wait_target and not payload.get("hdcWait", {}).get("connected"):
+        apply_launch_failure(
+            payload,
+            classify_launch_failure(
+                str(payload["logTail"]),
+                process.poll(),
+                payload.get("hdcWait") if isinstance(payload.get("hdcWait"), dict) else None,
+                payload.get("hdcSnapshotBefore") if isinstance(payload.get("hdcSnapshotBefore"), dict) else None,
+                payload.get("hdcSnapshot") if isinstance(payload.get("hdcSnapshot"), dict) else None,
+            ),
+        )
+        payload["hdcSnapshots"] = {
+            "before": summarize_hdc_snapshot(payload["hdcSnapshotBefore"]),
+            "after": summarize_hdc_snapshot(payload["hdcSnapshot"]),
+        }
 
     print_json(payload)
+    if payload.get("decision") == "blocked":
+        return 2
     if payload.get("stabilityWait", {}).get("stable") is False:
         return 2
     return 0

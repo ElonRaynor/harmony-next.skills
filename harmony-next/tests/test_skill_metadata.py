@@ -13,6 +13,7 @@ from pathlib import Path
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 SKILL_PATH = SKILL_ROOT / "SKILL.md"
 EMULATOR_PLAYBOOK_PATH = SKILL_ROOT / "references" / "ideGuides" / "DevEco模拟器私有接口与AI自动化.md"
+WEBVIEW_CDP_GUIDE_PATH = SKILL_ROOT / "references" / "ideGuides" / "ArkWeb WebView CDP调试与字段到达证明.md"
 EMPTY_ABILITY_TEMPLATE_ROOT = SKILL_ROOT / "references" / "templates" / "empty-ability-app"
 MINIMAL_SCAFFOLD_DOC_PATH = SKILL_ROOT / "references" / "quickStart" / "ets" / "minimal-project-scaffold.md"
 SCRIPT_ROOT = SKILL_ROOT / "scripts"
@@ -40,6 +41,7 @@ class SkillMetadataTests(unittest.TestCase):
         self.readme_text = README_PATH.read_text(encoding="utf-8") if README_PATH else None
         self.readme_en_text = README_EN_PATH.read_text(encoding="utf-8") if README_EN_PATH else None
         self.emulator_playbook_text = EMULATOR_PLAYBOOK_PATH.read_text(encoding="utf-8")
+        self.webview_cdp_guide_text = WEBVIEW_CDP_GUIDE_PATH.read_text(encoding="utf-8")
         self.minimal_scaffold_text = MINIMAL_SCAFFOLD_DOC_PATH.read_text(encoding="utf-8")
 
     def require_repo_root(self) -> Path:
@@ -228,6 +230,9 @@ class SkillMetadataTests(unittest.TestCase):
             "launch --name <hvd> --image-root <dir> --trace-name <name>",
             "download center page URL",
             "HVD image download",
+            "device_ui_action.py",
+            "webview-devtools",
+            "emulator_kernel_panic",
         ]
         required_emulator_fragments = [
             "## HVD 管理 CLI",
@@ -242,6 +247,7 @@ class SkillMetadataTests(unittest.TestCase):
             "attached 生命周期核查表",
             "Emulator -stop",
             "detached",
+            "WebView DevTools 与 CDP 字段证明",
         ]
 
         for fragment in required_skill_fragments:
@@ -250,6 +256,35 @@ class SkillMetadataTests(unittest.TestCase):
         for fragment in required_emulator_fragments:
             with self.subTest(fragment=fragment):
                 self.assertIn(fragment, self.emulator_playbook_text)
+
+    def test_webview_cdp_field_arrival_workflow_is_bounded(self) -> None:
+        required_skill_fragments = [
+            "ArkWeb/WebView DevTools",
+            "Runtime.evaluate",
+            "awaitPromise=true",
+            "returnByValue=true",
+            "Page.captureScreenshot",
+            "device_evidence_bundle.py webview-devtools",
+            "device_ui_action.py tap",
+        ]
+        required_guide_fragments = [
+            "TritonKit",
+            "Runtime.evaluate",
+            '"awaitPromise": true',
+            '"returnByValue": true',
+            "bridge callback JSON",
+            "Page.captureScreenshot",
+            "foregroundEvidenceValid=false",
+            "webview_socket_not_found",
+            "devtools_http_reset",
+        ]
+
+        for fragment in required_skill_fragments:
+            with self.subTest(skill_fragment=fragment):
+                self.assertIn(fragment, self.skill_text)
+        for fragment in required_guide_fragments:
+            with self.subTest(guide_fragment=fragment):
+                self.assertIn(fragment, self.webview_cdp_guide_text)
 
     def test_release_workflow_uses_skill_zip_asset(self) -> None:
         repo_root = self.require_repo_root()

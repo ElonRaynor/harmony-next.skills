@@ -8,9 +8,12 @@ import os
 import platform
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.request
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -541,6 +544,426 @@ def summarize_layout(path: Path) -> dict[str, object]:
     return {"available": True, "nodeCount": node_count, "bundleNames": sorted(bundle_names)[:20]}
 
 
+def parse_webview_sockets(output: str) -> list[dict[str, object]]:
+    sockets: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for match in re.finditer(r"@?(webview_devtools_remote_(\d+))", output):
+        name = match.group(1)
+        if name in seen:
+            continue
+        seen.add(name)
+        sockets.append({"remoteSocket": name, "pid": int(match.group(2))})
+    return sockets
+
+
+def parse_fport_tasks(output: str) -> list[dict[str, object]]:
+    tasks: list[dict[str, object]] = []
+    for raw_line in output.splitlines():
+        local_match = re.search(r"\btcp:(\d+)\b", raw_line)
+        remote_match = re.search(r"\blocalabstract:(webview_devtools_remote_(\d+))\b", raw_line)
+        if not local_match or not remote_match:
+            continue
+        tasks.append(
+            {
+                "localPort": int(local_match.group(1)),
+                "localNode": f"tcp:{local_match.group(1)}",
+                "remoteSocket": remote_match.group(1),
+                "pid": int(remote_match.group(2)),
+            }
+        )
+    return tasks
+
+
+def choose_free_local_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+        listener.bind(("127.0.0.1", 0))
+        return int(listener.getsockname()[1])
+
+
+def summarize_json_value(value: object) -> dict[str, object]:
+    if isinstance(value, list):
+        item_keys: set[str] = set()
+        for item in value[:20]:
+            if isinstance(item, dict):
+                item_keys.update(str(key) for key in item)
+        return {
+            "jsonType": "array",
+            "itemCount": len(value),
+            "itemKeys": sorted(item_keys)[:30],
+        }
+    if isinstance(value, dict):
+        return {"jsonType": "object", "keys": sorted(str(key) for key in value)[:40]}
+    return {"jsonType": type(value).__name__}
+
+
+def probe_devtools_http(local_port: int, endpoint: str, timeout: float) -> dict[str, object]:
+    url = f"http://127.0.0.1:{local_port}{endpoint}"
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as response:
+            body = response.read(65537)
+            truncated = len(body) > 65536
+            body = body[:65536]
+            status = int(response.status)
+    except urllib.error.HTTPError as error:
+        return {
+            "endpoint": endpoint,
+            "ok": False,
+            "failureCode": "devtools_http_error",
+            "status": error.code,
+            "error": str(error)[:500],
+        }
+    except urllib.error.URLError as error:
+        reason = error.reason
+        if isinstance(reason, (socket.timeout, TimeoutError)):
+            failure_code = "devtools_http_timeout"
+        elif isinstance(reason, ConnectionResetError):
+            failure_code = "devtools_http_reset"
+        elif isinstance(reason, ConnectionRefusedError):
+            failure_code = "devtools_connection_refused"
+        else:
+            failure_code = "devtools_connection_failed"
+        return {
+            "endpoint": endpoint,
+            "ok": False,
+            "failureCode": failure_code,
+            "error": str(error)[:500],
+        }
+    except (ConnectionResetError, ConnectionRefusedError, socket.timeout, TimeoutError) as error:
+        if isinstance(error, ConnectionResetError):
+            failure_code = "devtools_http_reset"
+        elif isinstance(error, ConnectionRefusedError):
+            failure_code = "devtools_connection_refused"
+        else:
+            failure_code = "devtools_http_timeout"
+        return {
+            "endpoint": endpoint,
+            "ok": False,
+            "failureCode": failure_code,
+            "error": str(error)[:500],
+        }
+
+    try:
+        decoded = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        return {
+            "endpoint": endpoint,
+            "ok": False,
+            "failureCode": "devtools_invalid_json",
+            "status": status,
+            "bytesRead": len(body),
+            "truncated": truncated,
+            "error": str(error)[:500],
+        }
+    return {
+        "endpoint": endpoint,
+        "ok": 200 <= status < 300,
+        "status": status,
+        "bytesRead": len(body),
+        "truncated": truncated,
+        "jsonSummary": summarize_json_value(decoded),
+    }
+
+
+def write_webview_diagnostic_summary(
+    payload: dict[str, object],
+    artifact_dir: Path,
+    commands: list[dict[str, object]],
+) -> dict[str, object]:
+    ledger_path = artifact_dir / "command_ledger.json"
+    ledger_path.write_text(json.dumps(commands, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    summary_path = artifact_dir / "summary.json"
+    payload["artifactDir"] = str(artifact_dir)
+    payload["commandLedger"] = str(ledger_path)
+    payload["summary"] = str(summary_path)
+    payload["artifacts"] = [
+        artifact_record("command-ledger", ledger_path, "summary-safe"),
+    ]
+    summary_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return payload
+
+
+def run_webview_devtools(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
+    if args.timeout <= 0 or args.http_timeout <= 0:
+        block("command and HTTP timeouts must be positive", missing_config=["timeout"])
+    probe = probe_hdc(args.hdc, args.deveco_app)
+    if not probe.exists:
+        block(f"hdc was not found: {probe.path}", missing_config=["hdc"], hdc=probe.to_json())
+    if not probe.executable:
+        block(f"hdc is not executable: {probe.path}", missing_config=["hdcExecutable"], hdc=probe.to_json())
+    assert probe.path is not None
+
+    artifact_dir = prepare_artifact_dir(args.artifact_dir)
+    target, connected_targets, list_command = choose_target(probe.path, args.target, args.timeout)
+    commands: list[dict[str, object]] = [list_command]
+
+    socket_record = run_hdc_capture_command(
+        probe.path,
+        target,
+        ["shell", "cat", "/proc/net/unix"],
+        "webview.list-sockets",
+        artifact_dir,
+        args.timeout,
+        "webview_sockets.txt",
+        snippet=True,
+    )
+    commands.append(socket_record)
+    socket_stdout = artifact_dir / "webview_sockets.txt"
+    socket_stderr = artifact_dir / "webview_sockets.stderr.txt"
+    socket_output = socket_stdout.read_text(encoding="utf-8", errors="replace")
+    sockets = parse_webview_sockets(socket_output) if socket_record["exitCode"] == 0 else []
+
+    fport_record = run_hdc_capture_command(
+        probe.path,
+        target,
+        ["fport", "ls"],
+        "webview.list-fports",
+        artifact_dir,
+        args.timeout,
+        "webview_fports.txt",
+        snippet=True,
+    )
+    commands.append(fport_record)
+    fport_stdout = artifact_dir / "webview_fports.txt"
+    fport_stderr = artifact_dir / "webview_fports.stderr.txt"
+    fport_output = fport_stdout.read_text(encoding="utf-8", errors="replace")
+    fport_tasks = parse_fport_tasks(fport_output) if fport_record["exitCode"] == 0 else []
+    live_socket_names = {str(item["remoteSocket"]) for item in sockets}
+    stale_forwards = [item for item in fport_tasks if str(item["remoteSocket"]) not in live_socket_names]
+    for path in (socket_stdout, socket_stderr, fport_stdout, fport_stderr):
+        path.unlink(missing_ok=True)
+    if socket_record["exitCode"] == 0:
+        socket_record["stdoutSnippet"] = f"discovered {len(sockets)} webview_devtools_remote_* socket(s)"
+        socket_record["stderrSnippet"] = ""
+    if fport_record["exitCode"] == 0:
+        fport_record["stdoutSnippet"] = f"discovered {len(fport_tasks)} WebView fport task(s)"
+        fport_record["stderrSnippet"] = ""
+    socket_record["stdout"] = None
+    socket_record["stderr"] = None
+    fport_record["stdout"] = None
+    fport_record["stderr"] = None
+
+    payload: dict[str, object] = {
+        "decision": "blocked",
+        "operation": "device.webview-devtools.diagnose",
+        "riskLevel": "automation",
+        "target": target,
+        "connectedTargets": connected_targets,
+        "hdc": probe.to_json(),
+        "sockets": sockets,
+        "fportTasks": fport_tasks,
+        "staleForwards": stale_forwards,
+        "redactionPolicy": args.redaction_policy,
+        "rawSensitiveContentStored": False,
+        "recommendations": [],
+        "feedback": feedback_payload(
+            "webview-devtools JSON output",
+            "redacted command ledger",
+            "DevEco Studio and HDC versions",
+        ),
+    }
+
+    if socket_record["exitCode"] != 0:
+        payload.update(
+            {
+                "failureCode": "webview_socket_enumeration_failed",
+                "failureCategory": "device_shell",
+                "failureSignal": socket_record.get("stderrSnippet") or socket_record.get("stdoutSnippet"),
+            }
+        )
+        return 2, write_webview_diagnostic_summary(payload, artifact_dir, commands)
+    if fport_record["exitCode"] != 0:
+        payload.update(
+            {
+                "failureCode": "fport_list_failed",
+                "failureCategory": "fport",
+                "failureSignal": fport_record.get("stderrSnippet") or fport_record.get("stdoutSnippet"),
+            }
+        )
+        return 2, write_webview_diagnostic_summary(payload, artifact_dir, commands)
+
+    requested_socket = args.remote_socket.removeprefix("localabstract:") if args.remote_socket else None
+    if requested_socket and not re.fullmatch(r"webview_devtools_remote_\d+", requested_socket):
+        payload.update(
+            {
+                "failureCode": "invalid_remote_socket",
+                "failureCategory": "configuration",
+                "failureSignal": "--remote-socket must look like webview_devtools_remote_<pid>.",
+                "missingConfig": ["remoteSocket"],
+            }
+        )
+        return 2, write_webview_diagnostic_summary(payload, artifact_dir, commands)
+    if requested_socket and requested_socket not in live_socket_names:
+        payload.update(
+            {
+                "failureCode": "webview_socket_not_found",
+                "failureCategory": "webview_runtime",
+                "failureSignal": f"Requested socket is not present on the selected target: {requested_socket}",
+                "remoteSocket": requested_socket,
+                "recommendations": [
+                    "Confirm the intended WebView process is alive and Web debugging is enabled before retrying."
+                ],
+            }
+        )
+        return 2, write_webview_diagnostic_summary(payload, artifact_dir, commands)
+    if not requested_socket and len(sockets) != 1:
+        failure_code = "webview_socket_not_found" if not sockets else "multiple_webview_sockets"
+        payload.update(
+            {
+                "failureCode": failure_code,
+                "failureCategory": "webview_runtime",
+                "failureSignal": (
+                    "No webview_devtools_remote_* socket was found."
+                    if not sockets
+                    else "Multiple WebView DevTools sockets were found; pass --remote-socket."
+                ),
+                "missingConfig": ["remoteSocket"] if sockets else [],
+                "recommendations": [
+                    "Open the intended ArkWeb page and confirm Web debugging is enabled."
+                    if not sockets
+                    else "Select the socket whose PID belongs to the intended foreground WebView."
+                ],
+            }
+        )
+        return 2, write_webview_diagnostic_summary(payload, artifact_dir, commands)
+
+    selected_socket = requested_socket or str(sockets[0]["remoteSocket"])
+    local_port = args.local_port or choose_free_local_port()
+    if not 1 <= local_port <= 65535:
+        payload.update(
+            {
+                "failureCode": "invalid_local_port",
+                "failureCategory": "configuration",
+                "failureSignal": "--local-port must be in range 1..65535.",
+                "missingConfig": ["localPort"],
+            }
+        )
+        return 2, write_webview_diagnostic_summary(payload, artifact_dir, commands)
+    conflicting = next((item for item in fport_tasks if item["localPort"] == local_port), None)
+    created_forward = False
+    reused_forward = False
+    cleanup_record: dict[str, object] | None = None
+
+    if conflicting and conflicting["remoteSocket"] == selected_socket:
+        reused_forward = True
+    elif conflicting:
+        is_stale = conflicting in stale_forwards
+        if is_stale and args.replace_stale:
+            remove_record = run_hdc_capture_command(
+                probe.path,
+                target,
+                ["fport", "rm", f"tcp:{local_port}"],
+                "webview.remove-stale-fport",
+                artifact_dir,
+                args.timeout,
+                "webview_remove_stale_fport.txt",
+                snippet=True,
+            )
+            commands.append(remove_record)
+            if remove_record["exitCode"] != 0:
+                payload.update(
+                    {
+                        "failureCode": "stale_fport_remove_failed",
+                        "failureCategory": "fport",
+                        "failureSignal": remove_record.get("stderrSnippet") or remove_record.get("stdoutSnippet"),
+                    }
+                )
+                return 2, write_webview_diagnostic_summary(payload, artifact_dir, commands)
+        else:
+            payload.update(
+                {
+                    "failureCode": "stale_fport" if is_stale else "local_port_in_use",
+                    "failureCategory": "fport",
+                    "failureSignal": f"tcp:{local_port} is already forwarded to {conflicting['remoteSocket']}.",
+                    "localPort": local_port,
+                    "remoteSocket": selected_socket,
+                    "recommendations": [
+                        "Pass another --local-port, or use --replace-stale only when the conflicting WebView socket is no longer live."
+                    ],
+                }
+            )
+            return 2, write_webview_diagnostic_summary(payload, artifact_dir, commands)
+
+    if not reused_forward:
+        create_record = run_hdc_capture_command(
+            probe.path,
+            target,
+            ["fport", f"tcp:{local_port}", f"localabstract:{selected_socket}"],
+            "webview.create-fport",
+            artifact_dir,
+            args.timeout,
+            "webview_create_fport.txt",
+            snippet=True,
+        )
+        commands.append(create_record)
+        if create_record["exitCode"] != 0:
+            payload.update(
+                {
+                    "failureCode": "fport_create_failed",
+                    "failureCategory": "fport",
+                    "failureSignal": create_record.get("stderrSnippet") or create_record.get("stdoutSnippet"),
+                    "localPort": local_port,
+                    "remoteSocket": selected_socket,
+                }
+            )
+            return 2, write_webview_diagnostic_summary(payload, artifact_dir, commands)
+        created_forward = True
+
+    probes = [
+        probe_devtools_http(local_port, "/json", args.http_timeout),
+        probe_devtools_http(local_port, "/json/version", args.http_timeout),
+    ]
+    probe_ok = any(bool(item.get("ok")) for item in probes)
+
+    if created_forward and not args.keep_forward:
+        cleanup_record = run_hdc_capture_command(
+            probe.path,
+            target,
+            ["fport", "rm", f"tcp:{local_port}"],
+            "webview.cleanup-fport",
+            artifact_dir,
+            args.timeout,
+            "webview_cleanup_fport.txt",
+            snippet=True,
+        )
+        commands.append(cleanup_record)
+
+    payload.update(
+        {
+            "decision": "allowed" if probe_ok else "blocked",
+            "localPort": local_port,
+            "remoteSocket": selected_socket,
+            "pid": int(selected_socket.rsplit("_", 1)[1]),
+            "fportStatus": {
+                "created": created_forward,
+                "reused": reused_forward,
+                "kept": bool(args.keep_forward or reused_forward),
+                "cleanupExitCode": cleanup_record.get("exitCode") if cleanup_record else None,
+            },
+            "httpProbe": probes,
+            "recommendations": (
+                [
+                    "Use the returned webSocketDebuggerUrl with CDP Runtime.evaluate; keep bridge evidence small and redacted.",
+                    "Treat screenshots and layout dumps as supporting evidence only after confirming the intended foreground page.",
+                ]
+                if probe_ok
+                else [
+                    "Confirm the selected PID is still alive and ArkWeb debugging is enabled.",
+                    "Re-run after removing only stale forwards; do not restart or clear every HDC target by default.",
+                ]
+            ),
+        }
+    )
+    if not probe_ok:
+        first_failure = next((item for item in probes if item.get("failureCode")), {})
+        payload["failureCode"] = first_failure.get("failureCode", "devtools_endpoint_unavailable")
+        payload["failureCategory"] = "devtools_http"
+        payload["failureSignal"] = first_failure.get("error", "Neither /json nor /json/version returned valid JSON.")
+    if cleanup_record and cleanup_record.get("exitCode") != 0:
+        payload["cleanupWarning"] = "The diagnostic forward could not be removed; inspect fportTasks before retrying."
+
+    return (0 if probe_ok else 2), write_webview_diagnostic_summary(payload, artifact_dir, commands)
+
+
 def run_capture(args: argparse.Namespace) -> dict[str, object]:
     probe = probe_hdc(args.hdc, args.deveco_app)
     if not probe.exists:
@@ -917,6 +1340,21 @@ def build_parser() -> argparse.ArgumentParser:
     capture.add_argument("--no-cleanup", action="store_true", help="Leave remote /data/local/tmp artifacts in place")
     capture.add_argument("--json", action="store_true", help="Print machine-readable JSON")
 
+    webview = subparsers.add_parser(
+        "webview-devtools",
+        help="Diagnose an ArkWeb/WebView DevTools socket, bounded fport, and HTTP discovery endpoints",
+    )
+    add_hdc_arguments(webview)
+    webview.add_argument("--target", help="HDC target, required when multiple targets are connected")
+    webview.add_argument("--artifact-dir", type=Path, help="Required directory for the diagnostic ledger and summary")
+    webview.add_argument("--remote-socket", help="webview_devtools_remote_<pid> or localabstract:webview_devtools_remote_<pid>")
+    webview.add_argument("--local-port", type=int, help="Host TCP port; an available loopback port is selected when omitted")
+    webview.add_argument("--http-timeout", type=float, default=3, help="Timeout for each /json HTTP probe")
+    webview.add_argument("--replace-stale", action="store_true", help="Remove a conflicting forward only when its remote socket is no longer live")
+    webview.add_argument("--keep-forward", action="store_true", help="Keep a forward created by this run")
+    webview.add_argument("--redaction-policy", default=DEFAULT_REDACTION_POLICY)
+    webview.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+
     return parser
 
 
@@ -929,6 +1367,8 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "capture":
             payload = run_capture(args)
             exit_code = 0
+        elif args.command == "webview-devtools":
+            exit_code, payload = run_webview_devtools(args)
         else:
             parser.error(f"Unknown command: {args.command}")
             return 2

@@ -880,6 +880,7 @@ class HvdManagerTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["result"], "trace-timeout")
+        self.assertEqual(payload["failureCode"], "trace_helper_unavailable")
         diagnostics = payload["traceTimeoutDiagnostics"]
         self.assertEqual(diagnostics["socketPath"], "/tmp/ai-emu-hangs")
         self.assertIn("Offline targets", " ".join(diagnostics["likelyCauses"]))
@@ -887,6 +888,155 @@ class HvdManagerTests(unittest.TestCase):
         command_purposes = {item["purpose"] for item in diagnostics["nextDiagnosticCommands"]}
         self.assertIn("Inspect HVD runtime state", command_purposes)
         self.assertIn("Inspect HDC target state", command_purposes)
+
+    def test_launch_classifies_kernel_panic_after_hdc_timeout(self) -> None:
+        emulator = Path(self.temp_dir.name) / "Emulator"
+        emulator.write_text(
+            textwrap.dedent(
+                """\
+                #!/usr/bin/env python3
+                import socket
+                import sys
+                import time
+
+                if sys.argv[1:3] == ["-list", "-details"]:
+                    print("name=Source Phone isRunning=false hw.hdc.port=10125")
+                    raise SystemExit(0)
+                trace_name = sys.argv[sys.argv.index("-t") + 1]
+                client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                client.connect(f"/tmp/{trace_name}")
+                client.sendall(b'{"event":"fake-start"}\\n')
+                client.close()
+                print("Kernel panic - not syncing: sysrq triggered crash", flush=True)
+                time.sleep(0.1)
+                raise SystemExit(17)
+                """
+            ),
+            encoding="utf-8",
+        )
+        emulator.chmod(0o755)
+        hdc = Path(self.temp_dir.name) / "hdc"
+        hdc.write_text("#!/bin/sh\necho '[Empty]'\n", encoding="utf-8")
+        hdc.chmod(0o755)
+        image_root = Path(self.temp_dir.name) / "image-root"
+        image_root.mkdir()
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                "--root",
+                str(self.root),
+                "--emulator",
+                str(emulator),
+                "launch",
+                "--name",
+                "Source Phone",
+                "--image-root",
+                str(image_root),
+                "--trace-name",
+                "ai-emu-kernel-panic",
+                "--hdc",
+                str(hdc),
+                "--timeout",
+                "1",
+                "--stability-seconds",
+                "0",
+                "--trace-hold-seconds",
+                "0",
+                "--json",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 2)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["decision"], "blocked")
+        self.assertEqual(payload["failureCode"], "emulator_kernel_panic")
+        self.assertEqual(payload["failureCategory"], "emulator_crash")
+        self.assertIn("Kernel panic", payload["failureSignal"])
+        self.assertIn("before", payload["hdcSnapshots"])
+        self.assertIn("after", payload["hdcSnapshots"])
+
+    def test_launch_classifies_offline_hdc_state_as_stale_target(self) -> None:
+        classification = MODULE.classify_launch_failure(
+            "",
+            None,
+            {"connected": False, "error": "timed out waiting for hdc target"},
+            {"ok": True, "stdout": "127.0.0.1:10125 TCP Offline localhost", "stderr": ""},
+            {"ok": True, "stdout": "[Empty]", "stderr": ""},
+        )
+
+        self.assertEqual(classification["failureCode"], "stale_hdc_target")
+        self.assertEqual(classification["failureCategory"], "hdc_state")
+
+    def test_launch_returns_blocked_for_generic_hdc_wait_timeout(self) -> None:
+        emulator = Path(self.temp_dir.name) / "Emulator"
+        emulator.write_text(
+            textwrap.dedent(
+                """\
+                #!/usr/bin/env python3
+                import socket
+                import sys
+                import time
+
+                if sys.argv[1:3] == ["-list", "-details"]:
+                    print("name=Source Phone isRunning=true hw.hdc.port=10126")
+                    raise SystemExit(0)
+                trace_name = sys.argv[sys.argv.index("-t") + 1]
+                client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                client.connect(f"/tmp/{trace_name}")
+                client.sendall(b'{"event":"fake-start"}\\n')
+                client.close()
+                time.sleep(2)
+                """
+            ),
+            encoding="utf-8",
+        )
+        emulator.chmod(0o755)
+        hdc = Path(self.temp_dir.name) / "hdc"
+        hdc.write_text("#!/bin/sh\necho '[Empty]'\n", encoding="utf-8")
+        hdc.chmod(0o755)
+        image_root = Path(self.temp_dir.name) / "image-root"
+        image_root.mkdir()
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                "--root",
+                str(self.root),
+                "--emulator",
+                str(emulator),
+                "launch",
+                "--name",
+                "Source Phone",
+                "--image-root",
+                str(image_root),
+                "--trace-name",
+                "ai-emu-hdc-timeout",
+                "--hdc",
+                str(hdc),
+                "--timeout",
+                "1",
+                "--stability-seconds",
+                "0",
+                "--trace-hold-seconds",
+                "0",
+                "--json",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        payload = json.loads(result.stdout)
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(payload["decision"], "blocked")
+        self.assertEqual(payload["failureCode"], "hdc_wait_timeout")
+        self.assertFalse(payload["hdcWait"]["connected"])
 
 
 if __name__ == "__main__":

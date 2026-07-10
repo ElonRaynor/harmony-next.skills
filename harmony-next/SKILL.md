@@ -1,6 +1,6 @@
 ---
 name: harmony-next
-description: Use for HarmonyOS NEXT development help and local DevEco automation. Covers ArkTS/ArkUI/NDK API lookup, offline guide navigation, DevEco Studio and HarmonyOS Emulator tasks, hdc/uitest/aa/bm/hilog/hidumper diagnostics, and private DevEco interfaces such as CodeGenie, MCP, LanceDB, devecostudio://, ArkUI Inspector, Previewer, Profiler, Doctor, and UxTestService offline UI/UX audits.
+description: Use for HarmonyOS NEXT development help and local DevEco automation. Covers ArkTS/ArkUI/NDK API lookup, offline guide navigation, DevEco Studio and HarmonyOS Emulator tasks, hdc/uitest/aa/bm/hilog/hidumper diagnostics, ArkWeb/WebView DevTools and CDP evidence, and private DevEco interfaces such as CodeGenie, MCP, LanceDB, devecostudio://, ArkUI Inspector, Previewer, Profiler, Doctor, and UxTestService offline UI/UX audits.
 metadata:
   version: "1.3.30"
 ---
@@ -34,6 +34,7 @@ Install/update entrypoints:
    - DevEco Studio IDE, plugins, local services, CodeGenie, MCP, LanceDB, `devecostudio://`, UxTestService, or offline UI/UX audit: read the IDE playbook.
    - HarmonyOS Command Line Tools download, archive install, PATH setup, or `codelinter -v` validation: read `references/ideGuides/独立命令行工具配置手册.md` and use `scripts/commandline_tools_manager.py`.
    - HarmonyOS Emulator, HVD, hdc, uitest, aa, bm, hilog, or hidumper automation: read the Emulator playbook.
+   - ArkWeb/WebView DevTools forwarding, CDP `Runtime.evaluate`, or H5 bridge field-arrival proof: read `references/ideGuides/ArkWeb WebView CDP调试与字段到达证明.md`.
    - Unknown domain: start with `references/TASK_MAP.md`, then refine through `references/INDEX.md`.
 
 2. **Choose the smallest index**
@@ -66,7 +67,8 @@ Use these script-backed skill entries before hand-writing DevEco setup commands.
 | --- | --- | --- | --- |
 | Download, install, configure, or validate HarmonyOS Command Line Tools | `commandline_tools_manager.py` | `python3 harmony-next/scripts/commandline_tools_manager.py doctor --tools-root <dir> --json` | If the user gives a Huawei download center page URL, return the script's blocked result and ask the user to log in, copy the direct archive URL, or provide a local archive. |
 | List, clone, delete, diagnose, or launch local DevEco HVD instances | `hvd_manager.py` | `python3 harmony-next/scripts/hvd_manager.py doctor --json` | If HVD root, Emulator, SDK/image root, or trace startup data is missing, report the `issues`, `recommendations`, and `missingConfig` fields and ask the user to pass `--root`, `--emulator`, `--sdk-root` / `--image-root`, or matching env vars. |
-| Collect bounded HDC device evidence for debugging or UI audit inputs | `device_evidence_bundle.py` | `python3 harmony-next/scripts/device_evidence_bundle.py doctor --deveco-app <DevEco-Studio.app> --json` | Use `python3 harmony-next/scripts/device_evidence_bundle.py capture --deveco-app <DevEco-Studio.app> --target <target> --artifact-dir .hvigor/outputs/<run> --json` only when raw local screenshots, layout trees, app state, and bounded logs may be stored locally. If no target or multiple targets are present, report the `blocked` payload. |
+| Collect bounded HDC device evidence or diagnose WebView DevTools forwarding | `device_evidence_bundle.py` | `python3 harmony-next/scripts/device_evidence_bundle.py doctor --deveco-app <DevEco-Studio.app> --json` | Use `capture ... --artifact-dir <dir>` only when raw local screenshots, layout trees, app state, and bounded logs may be stored locally. Use `webview-devtools ... --artifact-dir <dir>` for socket/fport/HTTP discovery classification. |
+| Perform one bounded UI action with before/after evidence | `device_ui_action.py` | `python3 harmony-next/scripts/device_ui_action.py tap --deveco-app <DevEco-Studio.app> --target <target> --artifact-dir .hvigor/outputs/<run> --text "<visible-text>" --json` | Require exactly one target selector or raw device coordinate. Treat returned screenshot dimensions as the coordinate space; never reuse scaled preview coordinates. |
 | Capture a running HarmonyOS page and run an offline UI/UX audit report | `ux_audit_pipeline.py` | `python3 harmony-next/scripts/ux_audit_pipeline.py doctor --deveco-app <DevEco-Studio.app> --python <python-with-ux-deps> --json` | Use `python3 harmony-next/scripts/ux_audit_pipeline.py capture-audit --deveco-app <DevEco-Studio.app> --python <python-with-ux-deps> --target <target> --artifact-dir .hvigor/outputs/<run> --json` for the one-shot path. If Python image-processing modules are missing, report `missingConfig=["uxPythonDependencies"]` instead of treating UxTestService as broken. |
 | Convert offline DevEco Profiler trace files into SQLite evidence summaries | `profiler_trace_audit.py` | `python3 harmony-next/scripts/profiler_trace_audit.py doctor --deveco-app <DevEco-Studio.app> --json` | If `trace_streamer` or the input trace is missing, report the machine-readable `blocked` payload. Use `audit --input <trace> --output-dir .hvigor/outputs/<run> --json` only for existing `.ftrace` / `.htrace` / bytrace / rawtrace artifacts. |
 
@@ -76,6 +78,8 @@ Boundaries:
 - `hvd_manager.py launch-preflight` prints a guarded Emulator command plan when an external trace helper is already ready.
 - `hvd_manager.py launch` currently creates a startup trace socket, detaches Emulator and a trace holder, starts Emulator with `-t <trace-name>`, and waits for HDC/boot/stability unless `--no-wait-target` is passed.
 - `device_evidence_bundle.py` is evidence capture, not app lifecycle control: it may save real UI/layout/log artifacts to an explicit artifact directory, but it does not install, uninstall, start, stop, or mutate apps.
+- `device_evidence_bundle.py webview-devtools` may create one bounded `fport`; by default it removes only the forward created by that run. It emits socket, stale-forward, HTTP reset/refusal/timeout, and invalid-JSON failure codes.
+- `device_ui_action.py` performs exactly one `uitest uiInput` tap, swipe, or key event between before/after layout, screenshot, and bounded log capture. Coordinates must be raw device pixels from layout bounds or explicit device-space input.
 - `ux_audit_pipeline.py` composes `device_evidence_bundle.py` with DevEco `UxTestService`: it copies `tools/UxTestService` into the artifact directory before import so the DevEco `.app` bundle is not modified.
 - If either wrapper returns `blocked`, agents should try official HarmonyOS CLI evidence commands before giving up: `hdc list targets -v`, `hdc -t <target> shell uitest dumpLayout ...`, `screenCap`, `file recv`, `bm dump`, `aa dump`, and bounded `hilog`.
 - If a wrapper is blocked, misleading, or missing a useful workflow, use the scenario-specific GitHub issue form from the script's `feedback` JSON field or `ISSUE_GUIDE.md`; when GitHub access and enough context are available, create or comment on the issue directly with `gh`, preserving structured fields and following the redaction rules.
@@ -139,6 +143,8 @@ HVD manager command map:
 | `launch --name <hvd> --image-root <dir> --trace-name <name> --json` | Current implementation: create trace socket, detach Emulator and trace holder, then wait for HDC, boot, and stability | `traceHolder`, `hdcWait`, `bootWait`, `stabilityWait`, `logPath` |
 | `device_evidence_bundle.py doctor --deveco-app <DevEco-Studio.app> --json` | Locate `hdc` and summarize connected targets | `connectedTargets`, `missingConfig`, `issues` |
 | `device_evidence_bundle.py capture --deveco-app <DevEco-Studio.app> --target <target> --artifact-dir .hvigor/outputs/<run> --json` | Collect boot state, `bm` / `aa` summaries, bounded `hilog`, `uitest dumpLayout`, screenshot, and command ledger | `summary`, `artifacts`, `layoutSummary`, `commandLedger` |
+| `device_evidence_bundle.py webview-devtools --target <target> --artifact-dir .hvigor/outputs/<run> --json` | Enumerate WebView DevTools sockets, classify stale forwards, create one bounded fport, and probe `/json` plus `/json/version` | `sockets`, `staleForwards`, `fportStatus`, `httpProbe`, `failureCode` |
+| `device_ui_action.py tap --target <target> --artifact-dir .hvigor/outputs/<run> --text "<text>" --json` | Resolve raw bounds, execute one tap, and capture before/after evidence | `coordinateSpace`, `action`, `before`, `after`, `commandLedger` |
 | `ux_audit_pipeline.py doctor --deveco-app <DevEco-Studio.app> --python <python> --json` | Locate `hdc`, UxTestService, connected targets, and Python UX dependencies | `uxService`, `uxPython`, `connectedTargets`, `missingConfig` |
 | `ux_audit_pipeline.py capture-audit --deveco-app <DevEco-Studio.app> --python <python> --target <target> --artifact-dir .hvigor/outputs/<run> --json` | Capture layout/screenshot/log evidence, infer foreground bundle, run UxTestService, and write a Markdown/JSON report | `captureSummary`, `auditSummary`, `report`, `resultCounts`, `bundleName` |
 | `ux_audit_pipeline.py audit --evidence-summary <summary.json> --artifact-dir .hvigor/outputs/<run> --json` | Re-run UxTestService against an existing evidence bundle without touching the device | `checkParam`, `uxResult`, `uxSummary`, `report`, `resultCounts` |
@@ -151,9 +157,20 @@ HVD launch rules:
 - `launch` and `launch-preflight` validate `<image-root>/<imageSubPath>` from HVD `config.ini`; failures return `missingConfig=["imageRootSystemImage"]`.
 - Current `launch` defaults: trace holder stays alive for 1800 seconds, and the post-boot stability check runs for 60 seconds.
 - First-run Emulator license/agreement prompts are classified as `result="license-agreement-required"` with `missingConfig=["emulatorLicenseAgreement"]`; do not silently accept them. Use `--accept-license` only as an explicit opt-in after the agreement has been reviewed.
+- HDC readiness failures are classified with `failureCode`: `emulator_kernel_panic`, `emulator_crashed`, `stale_hdc_target`, or `hdc_wait_timeout`. Image and trace preconditions use `image_root_missing`, `license_agreement_required`, and `trace_helper_unavailable`.
 - If another process needs to install HAPs, deep link, screenshot, or dump layout after current detached `launch`, use the returned `hdcWait.target` and keep the trace holder alive long enough with `--trace-hold-seconds`.
 - Attached lifecycle checklist: the runner must stay foreground, keep the trace socket in-process, trap `SIGINT` / `SIGTERM` / `SIGHUP`, call `Emulator -stop`, close the socket, remove only its own trace path, and verify `hdc list targets -v` no longer reports the selected target.
 - Failure/timeout diagnostics should include `logPath`, `processExitCode`, `hvdRuntime`, `hdcSnapshot`, `hdcWait`, `bootWait`, and `stabilityWait` when present.
+
+### ArkWeb / WebView CDP field-arrival evidence
+
+Read `references/ideGuides/ArkWeb WebView CDP调试与字段到达证明.md` when the task is to prove that H5 code inside HarmonyOS ArkWeb received native bridge fields.
+
+- Prefer an already available TritonKit Harmony runtime; fall back to HDC/WebView CDP only when the higher-level runtime is unavailable.
+- Run `device_evidence_bundle.py webview-devtools` first. Multiple sockets require explicit `--remote-socket`; stale forwards are reported without global cleanup.
+- Use the selected page `webSocketDebuggerUrl` with CDP `Runtime.evaluate`, `awaitPromise=true`, and `returnByValue=true`.
+- Treat the small, redacted bridge callback JSON as primary proof. Do not block on `Page.captureScreenshot`.
+- Use `aa dump`, layout, and screenshot only as supporting foreground evidence. Ignore lock-screen or non-target captures.
 
 ## DevEco Studio Private Interfaces
 

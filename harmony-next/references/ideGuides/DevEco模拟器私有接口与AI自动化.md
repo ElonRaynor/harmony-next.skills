@@ -381,6 +381,25 @@ python3 harmony-next/scripts/hvd_manager.py download-image --device-type phone -
 
 不知道 ability 时，从 `bm dump -n` 的裁剪输出中查 `mainAbility`、`mainElementName` 或 `abilityInfos[].name`。
 
+## WebView DevTools 与 CDP 字段证明
+
+当目标是 ArkWeb/H5 bridge 字段到达证明时，先阅读 `ArkWeb WebView CDP调试与字段到达证明.md`。不要用项目私有转发脚本或全局 HDC 重启替代结构化诊断。
+
+```bash
+python3 harmony-next/scripts/device_evidence_bundle.py webview-devtools \
+  --deveco-app /Applications/DevEco-Studio.app \
+  --target <target> \
+  --artifact-dir .hvigor/outputs/webview-devtools \
+  --json
+```
+
+- wrapper 枚举 `webview_devtools_remote_*`、列出 `fport`、识别 stale forward，并探测 `/json` 与 `/json/version`。
+- 多 socket 时必须传 `--remote-socket webview_devtools_remote_<pid>`。
+- 默认只删除本轮创建的转发；`--replace-stale` 只处理占用所选本地端口且远端 socket 已消失的任务。
+- 字段到达使用 CDP `Runtime.evaluate`，设置 `awaitPromise=true`、`returnByValue=true`，只返回小型脱敏 JSON。
+- `Page.captureScreenshot` 挂起时立即放弃截图路径；bridge callback JSON 才是主证据。
+- `dumpLayout` 或截图若来自锁屏、桌面或其他前台页面，标记为无效支持证据。
+
 常用只读诊断：
 
 ```bash

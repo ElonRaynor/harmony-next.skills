@@ -12,7 +12,7 @@ Choose the issue form that matches the workflow under investigation:
 | --- | --- | --- |
 | DevEco Emulator / HVD launch, image root, license, HDC readiness, lifecycle | `deveco-emulator-hvd.yml` | `https://github.com/linhay/harmony-next.skills/issues/new?template=deveco-emulator-hvd.yml` |
 | HarmonyOS Command Line Tools setup, archive install, PATH, `codelinter` | `commandline-tools.yml` | `https://github.com/linhay/harmony-next.skills/issues/new?template=commandline-tools.yml` |
-| HDC device evidence capture, `bm/aa/hilog`, layout, screenshot, command ledger | `device-evidence-bundle.yml` | `https://github.com/linhay/harmony-next.skills/issues/new?template=device-evidence-bundle.yml` |
+| HDC evidence, bounded UI action, WebView DevTools socket/fport diagnostics | `device-evidence-bundle.yml` | `https://github.com/linhay/harmony-next.skills/issues/new?template=device-evidence-bundle.yml` |
 | Offline UI/UX audit, UxTestService, Python deps, rule result, false positive/negative | `offline-ux-audit.yml` | `https://github.com/linhay/harmony-next.skills/issues/new?template=offline-ux-audit.yml` |
 | Offline Profiler trace audit, `trace_streamer`, SQLite summary, long spans | `profiler-trace-audit.yml` | `https://github.com/linhay/harmony-next.skills/issues/new?template=profiler-trace-audit.yml` |
 | Reference/API lookup, missing/stale docs, bad slug/anchor/routing | `reference-api-feedback.yml` | `https://github.com/linhay/harmony-next.skills/issues/new?template=reference-api-feedback.yml` |
@@ -28,6 +28,8 @@ Choose the issue form that matches the workflow under investigation:
    - `python3 harmony-next/scripts/hvd_manager.py launch ... --json`
    - `python3 harmony-next/scripts/commandline_tools_manager.py doctor --tools-root <dir> --json`
    - `python3 harmony-next/scripts/device_evidence_bundle.py doctor --deveco-app <DevEco-Studio.app> --json`
+   - `python3 harmony-next/scripts/device_evidence_bundle.py webview-devtools --deveco-app <DevEco-Studio.app> --target <target> --artifact-dir <dir> --json`
+   - `python3 harmony-next/scripts/device_ui_action.py tap --deveco-app <DevEco-Studio.app> --target <target> --artifact-dir <dir> --text "<text>" --json`
    - `python3 harmony-next/scripts/ux_audit_pipeline.py doctor --deveco-app <DevEco-Studio.app> --python <python-with-ux-deps> --json`
    - `python3 harmony-next/scripts/reference_compat.py check`
    - `python3 -m unittest discover -s harmony-next/tests`
@@ -63,6 +65,14 @@ Choose the issue form that matches the workflow under investigation:
    - `topCallstack`
    - `thresholdHits`
    - `frameSlice`
+   - `failureCode`
+   - `failureCategory`
+   - `failureSignal`
+   - `sockets`
+   - `staleForwards`
+   - `fportStatus`
+   - `httpProbe`
+   - `coordinateSpace`
 4. Redact private data before filing:
    - Replace local usernames, absolute private repo paths, app names, bundle IDs, team IDs, account IDs, emails, phone numbers, internal hosts, and private URLs with stable placeholders.
    - Keep reproducibility-critical public facts such as DevEco Studio version, Emulator version, HVD type/API version, CLI command shape, error codes, and sanitized JSON field names.
@@ -112,9 +122,9 @@ Form: `device-evidence-bundle.yml`
 
 Include:
 
-- Command line used for `device_evidence_bundle.py`.
+- Command line used for `device_evidence_bundle.py` or `device_ui_action.py`.
 - `doctor --json` output with private target labels redacted.
-- `capture` JSON output, especially `decision`, `missingConfig`, `recommendations`, `feedback`, `layoutSummary`, and `artifacts`.
+- `capture`, `webview-devtools`, or UI action JSON output, especially `decision`, `failureCode`, `missingConfig`, `layoutSummary`, `coordinateSpace`, `staleForwards`, `httpProbe`, and `artifacts`.
 - `command_ledger.json` only after redacting private paths, bundle/app names, and stdout/stderr snippets.
 - Whether official CLI fallback was attempted: `hdc list targets -v`, `bm dump`, `aa dump`, bounded `hilog`, `uitest dumpLayout`, `screenCap`, and `file recv`.
 

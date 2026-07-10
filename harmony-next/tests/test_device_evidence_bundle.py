@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import json
 import os
+import http.server
 import shutil
 import subprocess
 import sys
 import tempfile
 import textwrap
+import threading
 import unittest
 from pathlib import Path
 
@@ -68,6 +70,15 @@ class DeviceEvidenceBundleTests(unittest.TestCase):
 
                 target = args[1]
                 rest = args[2:]
+                if rest[:2] == ["fport", "ls"]:
+                    print(os.environ.get("FAKE_HDC_FPORTS", "[Empty]"))
+                    sys.exit(0)
+                if rest[:2] == ["fport", "rm"]:
+                    print("removed " + rest[2])
+                    sys.exit(0)
+                if rest and rest[0] == "fport":
+                    print("forwarded " + " ".join(rest[1:]))
+                    sys.exit(0)
                 if rest[:2] == ["file", "recv"]:
                     if os.environ.get("FAKE_HDC_FAIL_RECV_LAYOUT") and rest[2].endswith("layout.json"):
                         print("layout recv failed", file=sys.stderr)
@@ -84,6 +95,10 @@ class DeviceEvidenceBundleTests(unittest.TestCase):
                     sys.exit(2)
 
                 shell = rest[1:]
+                if shell == ["cat", "/proc/net/unix"]:
+                    if not os.environ.get("FAKE_HDC_NO_WEBVIEW"):
+                        print("00000000: 00000002 00000000 00010000 0001 01 12345 @webview_devtools_remote_4242")
+                    sys.exit(0)
                 if shell[:3] == ["param", "get", "bootevent.boot.completed"]:
                     print("true")
                     sys.exit(0)
@@ -421,6 +436,88 @@ class DeviceEvidenceBundleTests(unittest.TestCase):
         self.assertEqual(payload["decision"], "blocked")
         self.assertEqual(payload["hdc"]["source"], "arg:hdc")
         self.assertEqual(payload["hdc"]["path"], str(missing_hdc))
+
+    def test_webview_devtools_probes_json_and_cleans_created_forward(self) -> None:
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self) -> None:
+                if self.path == "/json":
+                    body = json.dumps([{"id": "page-1", "webSocketDebuggerUrl": "ws://127.0.0.1/devtools/page/1"}]).encode()
+                else:
+                    body = json.dumps({"Browser": "ArkWeb", "Protocol-Version": "1.3"}).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, format: str, *args: object) -> None:
+                return
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        artifact_dir = self.root / "webview-artifacts"
+        try:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_PATH),
+                    "webview-devtools",
+                    "--hdc",
+                    str(self.fake_hdc),
+                    "--artifact-dir",
+                    str(artifact_dir),
+                    "--local-port",
+                    str(server.server_port),
+                    "--json",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                env=self.env,
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+        payload = json.loads(result.stdout)
+        ledger = json.loads((artifact_dir / "command_ledger.json").read_text(encoding="utf-8"))
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(payload["decision"], "allowed")
+        self.assertEqual(payload["remoteSocket"], "webview_devtools_remote_4242")
+        self.assertEqual(payload["pid"], 4242)
+        self.assertTrue(any(item["ok"] for item in payload["httpProbe"]))
+        self.assertTrue(any(item["purpose"] == "webview.create-fport" for item in ledger))
+        self.assertTrue(any(item["purpose"] == "webview.cleanup-fport" for item in ledger))
+        self.assertFalse((artifact_dir / "webview_sockets.txt").exists())
+        self.assertFalse((artifact_dir / "webview_fports.txt").exists())
+
+    def test_webview_devtools_classifies_missing_socket(self) -> None:
+        artifact_dir = self.root / "webview-missing"
+        env = {**self.env, "FAKE_HDC_NO_WEBVIEW": "1"}
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                "webview-devtools",
+                "--hdc",
+                str(self.fake_hdc),
+                "--artifact-dir",
+                str(artifact_dir),
+                "--json",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        payload = json.loads(result.stdout)
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(payload["decision"], "blocked")
+        self.assertEqual(payload["failureCode"], "webview_socket_not_found")
+        self.assertEqual(payload["sockets"], [])
 
 
 if __name__ == "__main__":

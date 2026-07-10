@@ -8,8 +8,8 @@ An offline HarmonyOS NEXT reference skill library for AI coding assistants such 
 
 [![release](https://img.shields.io/github/v/release/linhay/harmony-next.skills?style=flat-square)](https://github.com/linhay/harmony-next.skills/releases/latest)
 [![skills.sh](https://skills.sh/b/linhay/harmony-next.skills)](https://skills.sh/linhay/harmony-next.skills)
-![docs](https://img.shields.io/badge/docs-3,693%20markdown%20files-7c3aed?style=flat-square)
-![js-ets](https://img.shields.io/badge/JsEtsAPIReference-3,666%20files-b45309?style=flat-square)
+![docs](https://img.shields.io/badge/docs-3,708%20markdown%20files-7c3aed?style=flat-square)
+![js-ets](https://img.shields.io/badge/JsEtsAPIReference-3,678%20files-b45309?style=flat-square)
 
 > A local knowledge source for API 12-23, covering ArkTS, ArkUI, NDK, tooling, debugging, release workflows, and multi-device adaptation.
 
@@ -47,18 +47,19 @@ This repository turns those uncertainties into **local file lookups that are loc
 | [`SKILL.md`](./harmony-next/SKILL.md) | Single source of truth for skill rules: how agents should search and which sources to trust first |
 | [`references/KITS.md`](./harmony-next/references/KITS.md) | Navigate by Kit, such as AbilityKit, ArkUI, and ArkData |
 | [`references/TASK_MAP.md`](./harmony-next/references/TASK_MAP.md) | Navigate by task, such as UI, networking, media, and NDK |
-| [`references/INDEX.md`](./harmony-next/references/INDEX.md) | Full repository index with 3,693 Markdown paths |
+| [`references/INDEX.md`](./harmony-next/references/INDEX.md) | Full repository index with 3,708 Markdown paths |
 | [`JsEtsAPIReference/INDEX.md`](./harmony-next/references/JsEtsAPIReference/INDEX.md) | API bucket index for modules, topics, errors, and more |
 | [`references/templates/empty-ability-app`](./harmony-next/references/templates/empty-ability-app/) | Copyable HarmonyOS NEXT smoke fixture |
 | [`docs/agent-portability.md`](./docs/agent-portability.md) | Agent install and adapter path notes |
-| `harmony-next/references/` | All Markdown source documents, including 3,666 API documents |
+| `harmony-next/references/` | All Markdown source documents, including 3,678 API documents |
 
 **Automation and diagnostic scripts**:
 
 | Script | Purpose | Entry command example |
 | --- | --- | --- |
 | [`commandline_tools_manager.py`](./harmony-next/scripts/commandline_tools_manager.py) | Download and install Command Line Tools | `python3 harmony-next/scripts/commandline_tools_manager.py install ...` |
-| [`device_evidence_bundle.py`](./harmony-next/scripts/device_evidence_bundle.py) | Capture device debugging evidence | `python3 harmony-next/scripts/device_evidence_bundle.py capture ...` |
+| [`device_evidence_bundle.py`](./harmony-next/scripts/device_evidence_bundle.py) | Capture device evidence and diagnose WebView DevTools forwarding | `python3 harmony-next/scripts/device_evidence_bundle.py webview-devtools ...` |
+| [`device_ui_action.py`](./harmony-next/scripts/device_ui_action.py) | Perform one bounded UI action with before/after evidence | `python3 harmony-next/scripts/device_ui_action.py tap ...` |
 | [`ux_audit_pipeline.py`](./harmony-next/scripts/ux_audit_pipeline.py) | Run offline UI/UX audits | `python3 harmony-next/scripts/ux_audit_pipeline.py doctor ...` |
 | [`profiler_trace_audit.py`](./harmony-next/scripts/profiler_trace_audit.py) | Audit offline trace performance evidence | `python3 harmony-next/scripts/profiler_trace_audit.py audit ...` |
 | [`hvd_manager.py`](./harmony-next/scripts/hvd_manager.py) | Manage HVD devices | `python3 harmony-next/scripts/hvd_manager.py doctor ...` |
@@ -66,6 +67,7 @@ This repository turns those uncertainties into **local file lookups that are loc
 **Specialized documents**:
 
 - [`DevEco模拟器私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco模拟器私有接口与AI自动化.md)
+- [`ArkWeb WebView CDP调试与字段到达证明.md`](./harmony-next/references/ideGuides/ArkWeb%20WebView%20CDP调试与字段到达证明.md)
 - [`DevEco Studio IDE私有接口与AI自动化.md`](./harmony-next/references/ideGuides/DevEco%20Studio%20IDE私有接口与AI自动化.md)
 - [`minimal-project-scaffold.md`](./harmony-next/references/quickStart/ets/minimal-project-scaffold.md)
 
@@ -165,6 +167,7 @@ Read the two documents above for full details.
 | `Unreleased` | Device debugging evidence bundle CLI (`device_evidence_bundle.py`) |
 | `Unreleased` | Offline trace performance audit CLI (`profiler_trace_audit.py`) |
 | `Unreleased` | HVD launch improvements: trace socket holder, image validation, and license-agreement handling |
+| `Unreleased` | WebView DevTools diagnostics, CDP field-arrival guidance, bounded UI action evidence, and Emulator crash classification |
 | `v1.3.23` | Release workflow updated to Node 24 |
 | `v1.3.7` | Copyable minimal test project template, SDK version adaptation checks including 6.0.2(22), and `uitest` smoke coverage |
 | `v1.3.6` | Non-interactive automation policy for emulator workflows |
